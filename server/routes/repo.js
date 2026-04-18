@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { cloneRepo, getRepoPath } from '../services/repoManager.js';
-import { parseRepository } from '../services/fileParser.js';
+import { indexRepository } from '../services/indexer.js';
 
 const router = Router();
 const repoStatus = new Map();
@@ -16,21 +16,19 @@ router.post('/connect', async (req, res) => {
     repoStatus.set(repoUrl, { status: 'cloning', progress: 0 });
     const repo = await cloneRepo(repoUrl);
 
-    repoStatus.set(repoUrl, { status: 'parsing', progress: 30 });
-    const files = await parseRepository(repo.repoPath);
+    repoStatus.set(repoUrl, { status: 'indexing', progress: 20 });
 
-    repoStatus.set(repoUrl, {
-      status: 'parsed',
-      progress: 50,
-      fileCount: files.length
+    const result = await indexRepository(repo.repoId, repo.repoPath, (status, progress) => {
+      repoStatus.set(repoUrl, { status, progress, repoId: repo.repoId });
     });
 
     res.json({
       repoId: repo.repoId,
       owner: repo.owner,
       name: repo.name,
-      fileCount: files.length,
-      status: 'parsed'
+      fileCount: result.fileCount,
+      chunkCount: result.chunkCount,
+      status: 'indexed'
     });
   } catch (err) {
     repoStatus.set(repoUrl, { status: 'error', error: err.message });
