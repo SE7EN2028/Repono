@@ -1,0 +1,25 @@
+{
+  "name": "repono",
+  "version": "1.0.0",
+  "description": "AI-powered codebase intelligence tool",
+  "main": "server/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch server/index.js",
+    "start": "node server/index.js",
+    "client": "cd client && npm run dev",
+    "build": "cd client && npm run build"
+  },
+  "keywords": [
+    "ai",
+    "codebase",
+    "rag",
+    "developer-tools"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1"
+  }
+}
