@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { queryRAG } from '../services/ragPipeline.js';
 import { classifyQuery } from '../services/queryClassifier.js';
 import { keywordSearch, buildAnswer } from '../services/keywordSearch.js';
+import { searchWeb, extractConcept } from '../services/webSearch.js';
 import { getRepoPath } from '../services/repoManager.js';
 
 const router = Router();
@@ -29,8 +30,13 @@ router.post('/ask', async (req, res) => {
 
   try {
     const repoPath = await getRepoPath(repoId);
-    const results = await keywordSearch(repoPath, question);
-    const answer = buildAnswer(question, results);
+
+    const [results, webResults] = await Promise.all([
+      keywordSearch(repoPath, question),
+      fetchWebContext(question),
+    ]);
+
+    const answer = buildSmartAnswer(question, results, webResults, classification.type);
 
     const sources = results.map(r => ({
       filePath: r.chunk.metadata.filePath,
@@ -45,12 +51,56 @@ router.post('/ask', async (req, res) => {
       sources,
       queryType: classification.type,
       confidence: classification.confidence,
-      mode: 'keyword',
+      mode: webResults.length > 0 ? 'keyword+web' : 'keyword',
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+async function fetchWebContext(question) {
+  const concept = extractConcept(question);
+  if (!concept) return [];
+
+  try {
+    return await searchWeb(concept);
+  } catch {
+    return [];
+  }
+}
+
+function buildSmartAnswer(question, codeResults, webResults, queryType) {
+  let answer = '';
+
+  if (webResults.length > 0 && queryType === 'explain') {
+    const webInfo = webResults[0];
+    if (webInfo.text) {
+      answer += `**${webInfo.title || 'Explanation'}:** ${webInfo.text}\n\n`;
+    }
+  }
+
+  if (codeResults.length > 0) {
+    if (webResults.length > 0) {
+      answer += `**In your codebase:**\n\n`;
+    }
+    answer += buildAnswer(question, codeResults);
+  }
+
+  if (webResults.length > 1 && queryType === 'explain') {
+    answer += '\n\n---\n**Learn more:**\n';
+    webResults.slice(0, 3).forEach(w => {
+      if (w.text && w.text.length > 20) {
+        answer += `- ${w.text.slice(0, 120)}${w.text.length > 120 ? '...' : ''}\n`;
+      }
+    });
+  }
+
+  if (!answer.trim()) {
+    return "No matching code found. Try using specific function names, file names, or technical terms.";
+  }
+
+  return answer.trim();
+}
 
 router.post('/classify', async (req, res) => {
   const { question } = req.body;
