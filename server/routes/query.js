@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { queryRAG } from '../services/ragPipeline.js';
+import { classifyQuery } from '../services/queryClassifier.js';
 
 const router = Router();
 
@@ -10,11 +12,8 @@ router.post('/ask', async (req, res) => {
   }
 
   try {
-    res.json({
-      answer: 'RAG pipeline not yet connected',
-      sources: [],
-      queryType: 'unknown'
-    });
+    const result = await queryRAG(repoId, question);
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -22,7 +21,13 @@ router.post('/ask', async (req, res) => {
 
 router.post('/classify', async (req, res) => {
   const { question } = req.body;
-  res.json({ type: 'explain', confidence: 0 });
+
+  if (!question) {
+    return res.status(400).json({ error: 'Question is required' });
+  }
+
+  const classification = classifyQuery(question);
+  res.json(classification);
 });
 
 export default router;
