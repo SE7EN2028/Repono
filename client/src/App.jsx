@@ -7,6 +7,8 @@ import CodeMap from './components/CodeMap';
 import FilesView from './components/FilesView';
 import InsightsView from './components/InsightsView';
 import TweaksPanel from './components/TweaksPanel';
+import ConnectModal from './components/ConnectModal';
+import SearchModal from './components/SearchModal';
 import { REPOS, SEED_MESSAGES, CONTEXT_FILES } from './data/mockData';
 
 const DEFAULT_TWEAKS = {
@@ -24,6 +26,19 @@ export default function App() {
   const [messages, setMessages] = useState(SEED_MESSAGES);
   const [streaming, setStreaming] = useState(false);
   const [activeCtx, setActiveCtx] = useState(CONTEXT_FILES[0].path);
+  const [showConnect, setShowConnect] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowSearch(true);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -108,8 +123,9 @@ export default function App() {
         setView={setView}
         repo={repo}
         setRepoId={setRepoId}
+        onAddRepo={() => setShowConnect(true)}
       />
-      <TopBar repo={repo}/>
+      <TopBar repo={repo} onOpenSearch={() => setShowSearch(true)}/>
 
       {view === "chat" && (
         <>
@@ -122,6 +138,24 @@ export default function App() {
       {view === "insights" && <InsightsView/>}
 
       <TweaksPanel tweaks={tweaks} setTweak={setTweak} open={tweaksOpen} setOpen={setTweaksOpen}/>
+
+      {showConnect && (
+        <ConnectModal
+          onClose={() => setShowConnect(false)}
+          onConnected={(result) => {
+            setShowConnect(false);
+            console.log('Connected:', result);
+          }}
+        />
+      )}
+
+      {showSearch && (
+        <SearchModal
+          onClose={() => setShowSearch(false)}
+          onAsk={(q) => { setView('chat'); handleSend(q); }}
+          onNavigate={setView}
+        />
+      )}
 
       <style>{`
         .shell {

@@ -19,7 +19,7 @@ function IndexStatus({ status, progress, files }) {
   );
 }
 
-export default function TopBar({ repo }) {
+export default function TopBar({ repo, onOpenSearch }) {
   return (
     <header className="topbar">
       <div className="tb-left">
@@ -32,7 +32,7 @@ export default function TopBar({ repo }) {
         <IndexStatus status={repo.status} progress={repo.progress} files={repo.files}/>
       </div>
 
-      <button className="search">
+      <button className="search" onClick={onOpenSearch}>
         <I.Search size={14}/>
         <span>Search code, symbols, or ask a question…</span>
         <kbd className="mono">⌘K</kbd>

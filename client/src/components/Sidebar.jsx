@@ -19,7 +19,7 @@ function StatusDot({ status, progress }) {
   );
 }
 
-export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, setRepoId }) {
+export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, setRepoId, onAddRepo }) {
   const [repoOpen, setRepoOpen] = useState(false);
   return (
     <aside className={"sidebar" + (collapsed ? " collapsed" : "")}>
@@ -80,7 +80,7 @@ export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, 
                 </button>
               ))}
               <div className="repo-menu-foot">
-                <button className="ghost-btn"><I.Plus size={13}/> Add repository</button>
+                <button className="ghost-btn" onClick={() => onAddRepo && onAddRepo()}><I.Plus size={13}/> Add repository</button>
               </div>
             </div>
           )}
