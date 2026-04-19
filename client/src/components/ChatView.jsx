@@ -72,14 +72,14 @@ function Block({ block, onOpenRef }) {
 function Message({ m, onOpenRef }) {
   if (m.role === "user") {
     return (
-      <div className="msg user">
+      <div className="msg user msg-animate">
         <div className="msg-bubble">{m.text}</div>
         <div className="msg-meta mono">You · {m.time}</div>
       </div>
     );
   }
   return (
-    <div className="msg assistant">
+    <div className="msg assistant msg-animate">
       <div className="assistant-head">
         <div className="assistant-av"><I.Sparkle size={12}/></div>
         <div className="assistant-name">Repono</div>
@@ -99,7 +99,7 @@ function Message({ m, onOpenRef }) {
 
 function TypingIndicator() {
   return (
-    <div className="typing">
+    <div className="typing msg-animate">
       <div className="assistant-av"><I.Sparkle size={12}/></div>
       <div className="dots"><span/><span/><span/></div>
       <span className="thinking mono">searching codebase…</span>
@@ -214,6 +214,26 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
         .chat-welcome h2 { font-size: 24px; font-weight: 600; color: var(--text); margin: 0; }
         .chat-welcome p { font-size: 14px; color: var(--text-muted); margin: 0; }
         .block-text-wrap { display: flex; flex-direction: column; gap: 8px; }
+        @keyframes msg-in {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .msg-animate { animation: msg-in 0.35s ease-out; }
+        .msg-animate .block-text-wrap > *,
+        .msg-animate .block-refs,
+        .msg-animate .block-callout,
+        .msg-animate .block-list,
+        .msg-animate .codeblock {
+          animation: msg-in 0.4s ease-out both;
+        }
+        .msg-animate .block-text-wrap > *:nth-child(1) { animation-delay: 0.05s; }
+        .msg-animate .block-text-wrap > *:nth-child(2) { animation-delay: 0.1s; }
+        .msg-animate .block-text-wrap > *:nth-child(3) { animation-delay: 0.15s; }
+        .msg-animate .block-text-wrap > *:nth-child(4) { animation-delay: 0.2s; }
+        .msg-animate .block-text-wrap > *:nth-child(5) { animation-delay: 0.25s; }
+        .msg-animate .msg-body > *:nth-child(2) { animation: msg-in 0.4s ease-out 0.15s both; }
+        .msg-animate .msg-body > *:nth-child(3) { animation: msg-in 0.4s ease-out 0.25s both; }
+        .msg-animate .msg-body > *:nth-child(4) { animation: msg-in 0.4s ease-out 0.35s both; }
         .composer-wrap { padding: 10px 28px 20px; }
         .composer-wrap > * { max-width: 820px; margin-left: auto; margin-right: auto; }
         .suggest { display:flex; flex-wrap: wrap; gap: 6px; padding: 0 0 10px; }
