@@ -27,7 +27,16 @@ async function queryRAG(repoId, question, topK = 8) {
   const classification = classifyQuery(question);
 
   const store = new VectorStore(repoId);
-  await store.load();
+  try {
+    await store.load();
+  } catch (err) {
+    return {
+      answer: 'This repository has not been embedded yet. The OpenAI API key may be missing or the embedding step failed. Please check your API key and try reconnecting the repository.',
+      sources: [],
+      queryType: classification.type,
+      confidence: classification.confidence,
+    };
+  }
 
   const queryEmbedding = await generateEmbedding(question);
   const results = store.search(queryEmbedding, topK);
