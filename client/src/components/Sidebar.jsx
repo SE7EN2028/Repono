@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as I from './Icons';
-import { REPOS, NAV, RECENT_THREADS } from '../data/mockData';
+import { NAV, RECENT_THREADS } from '../data/mockData';
 
 function StatusDot({ status, progress }) {
   if (status === "processing") {
@@ -19,7 +19,7 @@ function StatusDot({ status, progress }) {
   );
 }
 
-export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, setRepoId, onAddRepo }) {
+export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, repos, setRepoId, onAddRepo }) {
   const [repoOpen, setRepoOpen] = useState(false);
   return (
     <aside className={"sidebar" + (collapsed ? " collapsed" : "")}>
@@ -66,7 +66,7 @@ export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, 
           </button>
           {repoOpen && (
             <div className="repo-menu">
-              {REPOS.map(r => (
+              {(repos || []).map(r => (
                 <button
                   key={r.id}
                   className={"repo-item" + (r.id === repo.id ? " active" : "")}

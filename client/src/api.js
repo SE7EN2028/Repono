@@ -45,6 +45,27 @@ export async function classifyQuestion(question) {
   return data;
 }
 
+export async function getRepoInsights(repoId) {
+  const response = await fetch(`${API_URL}/repo/insights/${repoId}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error);
+  return data;
+}
+
+export async function getRepoFiles(repoId) {
+  const response = await fetch(`${API_URL}/repo/files/${repoId}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error);
+  return data;
+}
+
+export async function getFileContent(repoId, filePath) {
+  const response = await fetch(`${API_URL}/repo/file/${repoId}?path=${encodeURIComponent(filePath)}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error);
+  return data;
+}
+
 export async function checkHealth() {
   const response = await fetch(`${API_URL}/health`);
   return response.ok;

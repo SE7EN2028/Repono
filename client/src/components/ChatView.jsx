@@ -102,7 +102,7 @@ export function streamText(full, onUpdate, onDone, speed = 8) {
   step();
 }
 
-export default function ChatView({ messages, onSend, streaming, onOpenRef }) {
+export default function ChatView({ messages, onSend, streaming, onOpenRef, repoConnected }) {
   const [input, setInput] = useState("");
   const scrollRef = useRef(null);
 
@@ -118,11 +118,13 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef }) {
     setInput("");
   };
 
-  const suggestions = [
-    "Trace the JWT refresh path",
-    "Why are checkout retries 500ing?",
-    "List unused exports in packages/core",
-    "Summarize the queue backoff logic",
+  const suggestions = repoConnected ? [
+    "Explain the main entry point",
+    "Where is authentication handled?",
+    "Find potential bugs in this codebase",
+    "Give me a high-level overview",
+  ] : [
+    "Connect a repository first to start asking questions",
   ];
 
   return (

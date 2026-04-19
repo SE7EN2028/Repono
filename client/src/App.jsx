@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
-import ChatView, { streamText } from './components/ChatView';
+import ChatView from './components/ChatView';
 import ContextViewer from './components/ContextViewer';
 import CodeMap from './components/CodeMap';
 import FilesView from './components/FilesView';
@@ -9,7 +9,8 @@ import InsightsView from './components/InsightsView';
 import TweaksPanel from './components/TweaksPanel';
 import ConnectModal from './components/ConnectModal';
 import SearchModal from './components/SearchModal';
-import { REPOS, SEED_MESSAGES, CONTEXT_FILES } from './data/mockData';
+import { askQuestion } from './api';
+import { REPOS, CONTEXT_FILES } from './data/mockData';
 
 const DEFAULT_TWEAKS = {
   accent: "#4F8CFF",
@@ -22,8 +23,9 @@ export default function App() {
   const [tweaks, setTweaks] = useState(DEFAULT_TWEAKS);
   const [tweaksOpen, setTweaksOpen] = useState(false);
   const [view, setView] = useState("chat");
-  const [repoId, setRepoId] = useState("acme-api");
-  const [messages, setMessages] = useState(SEED_MESSAGES);
+  const [repoId, setRepoId] = useState(null);
+  const [repos, setRepos] = useState(REPOS);
+  const [messages, setMessages] = useState([]);
   const [streaming, setStreaming] = useState(false);
   const [activeCtx, setActiveCtx] = useState(CONTEXT_FILES[0].path);
   const [showConnect, setShowConnect] = useState(false);
@@ -64,9 +66,9 @@ export default function App() {
     setTweaks(prev => ({ ...prev, [key]: value }));
   };
 
-  const repo = REPOS.find(r => r.id === repoId) || REPOS[0];
+  const repo = repos.find(r => r.id === repoId) || repos[0];
 
-  const handleSend = (text) => {
+  const handleSend = async (text) => {
     const userMsg = {
       id: "u" + Date.now(),
       role: "user",
@@ -77,36 +79,77 @@ export default function App() {
     setMessages(m => [...m, userMsg]);
     setStreaming(true);
 
-    setTimeout(() => {
-      const full = "I searched the repo and pulled 3 relevant snippets. Here\u2019s the high-level answer: the issue traces to a combination of **caching** and **missing validation**. Below are the files I\u2019m drawing from \u2014 click any to open in the context pane.";
-      const assistant = {
+    if (!repoId) {
+      setMessages(m => [...m, {
         id: aid,
         role: "assistant",
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        blocks: [{ type: "text", text: "" }],
-      };
-      setMessages(m => [...m, assistant]);
-      streamText(full,
-        (partial) => {
-          setMessages(m => m.map(x => x.id === aid ? { ...x, blocks: [{ type: "text", text: partial }] } : x));
-        },
-        () => {
-          setMessages(m => m.map(x => x.id === aid ? {
-            ...x,
-            blocks: [
-              { type: "text", text: full },
-              { type: "refs", items: [
-                { file: "services/checkout/src/idempotency.ts", lines: "84\u2013112", why: "Caches response by key" },
-                { file: "services/checkout/src/charge.ts", lines: "37\u201359", why: "Reads chargeResult" },
-                { file: "packages/core/src/store.ts", lines: "12\u201318", why: "Backing store interface" },
-              ]},
-              { type: "callout", kind: "info", text: "Scroll the context pane \u2192 for full file content with highlighted hits." },
-            ],
-          } : x));
-          setStreaming(false);
-        }
-      );
-    }, 500);
+        blocks: [
+          { type: "callout", kind: "warn", text: "No repository connected yet. Click **Add repository** in the sidebar to connect a GitHub repo first." }
+        ],
+      }]);
+      setStreaming(false);
+      return;
+    }
+
+    try {
+      const result = await askQuestion(repoId, text);
+
+      const blocks = [
+        { type: "text", text: result.answer },
+      ];
+
+      if (result.sources && result.sources.length > 0) {
+        blocks.push({
+          type: "refs",
+          items: result.sources.map(s => ({
+            file: s.filePath,
+            lines: `${s.startLine}-${s.endLine}`,
+            why: s.name,
+          })),
+        });
+      }
+
+      blocks.push({
+        type: "callout",
+        kind: "info",
+        text: `Query type: **${result.queryType}** · Confidence: **${Math.round((result.confidence || 0) * 100)}%**`,
+      });
+
+      setMessages(m => [...m, {
+        id: aid,
+        role: "assistant",
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        blocks,
+      }]);
+    } catch (err) {
+      setMessages(m => [...m, {
+        id: aid,
+        role: "assistant",
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        blocks: [
+          { type: "callout", kind: "warn", text: `Error: ${err.message}` }
+        ],
+      }]);
+    }
+
+    setStreaming(false);
+  };
+
+  const handleRepoConnected = (result) => {
+    setShowConnect(false);
+    const newRepo = {
+      id: result.repoId,
+      name: result.owner + '/' + result.name,
+      branch: 'main',
+      lang: 'Mixed',
+      files: result.fileCount,
+      status: 'indexed',
+    };
+    setRepos(prev => [...prev.filter(r => r.id !== result.repoId), newRepo]);
+    setRepoId(result.repoId);
+    setMessages([]);
+    setView('chat');
   };
 
   const openRef = (path) => {
@@ -122,6 +165,7 @@ export default function App() {
         view={view}
         setView={setView}
         repo={repo}
+        repos={repos}
         setRepoId={setRepoId}
         onAddRepo={() => setShowConnect(true)}
       />
@@ -129,7 +173,7 @@ export default function App() {
 
       {view === "chat" && (
         <>
-          <ChatView messages={messages} onSend={handleSend} streaming={streaming} onOpenRef={openRef}/>
+          <ChatView messages={messages} onSend={handleSend} streaming={streaming} onOpenRef={openRef} repoConnected={!!repoId}/>
           <ContextViewer files={CONTEXT_FILES} activePath={activeCtx} setActivePath={setActiveCtx}/>
         </>
       )}
@@ -142,10 +186,7 @@ export default function App() {
       {showConnect && (
         <ConnectModal
           onClose={() => setShowConnect(false)}
-          onConnected={(result) => {
-            setShowConnect(false);
-            console.log('Connected:', result);
-          }}
+          onConnected={handleRepoConnected}
         />
       )}
 
