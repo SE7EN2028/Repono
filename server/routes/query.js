@@ -33,10 +33,11 @@ router.post('/ask', async (req, res) => {
 
     const results = await keywordSearch(repoPath, question);
 
-    const needsWebSearch = classification.type === 'explain' &&
-      /what (?:is|does|are)|explain|how does|describe/i.test(question) &&
-      !results.some(r => r.chunk.metadata.name.toLowerCase().includes(extractConcept(question)?.toLowerCase() || ''));
+    const concept = extractConcept(question) || '';
+    const isConceptQuestion = /what (?:is|does|are)|explain|how does|describe|tell me about/i.test(question);
+    const isOwnFunction = results.length > 0 && results[0].chunk.metadata.name.toLowerCase() === concept.toLowerCase();
 
+    const needsWebSearch = isConceptQuestion && !isOwnFunction;
     const webResults = needsWebSearch ? await fetchWebContext(question) : [];
 
     const answer = buildSmartAnswer(question, results, webResults, classification.type);
