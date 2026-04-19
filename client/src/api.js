@@ -45,6 +45,13 @@ export async function classifyQuestion(question) {
   return data;
 }
 
+export async function getRepoDependencies(repoId) {
+  const response = await fetch(`${API_URL}/repo/dependencies/${repoId}`);
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error);
+  return data;
+}
+
 export async function getRepoInsights(repoId) {
   const response = await fetch(`${API_URL}/repo/insights/${repoId}`);
   const data = await response.json();

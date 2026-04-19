@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import * as I from './Icons';
-import { INSIGHTS } from '../data/mockData';
+import { getRepoInsights } from '../api';
 
 function Card({ title, icon, span = 1, children }) {
   const Ico = I[icon];
@@ -14,7 +15,20 @@ function Card({ title, icon, span = 1, children }) {
   );
 }
 
-export default function InsightsView() {
+export default function InsightsView({ repoId, repoName }) {
+  const [data, setData] = useState({ summary: '', stack: [], frameworks: [], entries: [], issues: [], hotspots: [] });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!repoId) return;
+    setLoading(true);
+    getRepoInsights(repoId)
+      .then(d => { setData(d); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [repoId]);
+
+  const name = repoName || 'repository';
+
   return (
     <div className="insights">
       <div className="ins-scroll">
@@ -23,25 +37,24 @@ export default function InsightsView() {
             <I.Sparkle size={12}/>
             <span>Repo overview</span>
           </div>
-          <h1>acme / monorepo</h1>
-          <p className="ins-hero-sub">{INSIGHTS.summary}</p>
+          <h1>{name}</h1>
+          <p className="ins-hero-sub">{data.summary}</p>
           <div className="ins-hero-meta mono">
-            <span>1,247 files</span><span>·</span>
-            <span>86,412 LOC</span><span>·</span>
-            <span>24 contributors</span><span>·</span>
-            <span>indexed 14 min ago</span>
+            <span>{data.fileCount || 0} files</span><span>·</span>
+            <span>{(data.totalLines || 0).toLocaleString()} LOC</span>
+            {loading && <><span>·</span><span>loading...</span></>}
           </div>
         </div>
 
         <div className="ins-grid">
           <Card title="Tech stack" icon="Layers" span={2}>
             <div className="stack-bar">
-              {INSIGHTS.stack.map((s, i) => (
+              {(data.stack || []).map((s, i) => (
                 <div key={i} className="stack-seg" style={{ width: `${s.share}%`, background: s.color }} title={`${s.name} · ${s.share}%`}/>
               ))}
             </div>
             <div className="stack-legend">
-              {INSIGHTS.stack.map(s => (
+              {(data.stack || []).map(s => (
                 <div key={s.name} className="stack-legend-item">
                   <span className="legend-dot" style={{ background: s.color }}/>
                   <span>{s.name}</span>
@@ -49,56 +62,65 @@ export default function InsightsView() {
                 </div>
               ))}
             </div>
-            <div className="fw-row">
-              {INSIGHTS.frameworks.map(f => <span key={f} className="fw-pill">{f}</span>)}
-            </div>
+            {data.frameworks && data.frameworks.length > 0 && (
+              <div className="fw-row">
+                {data.frameworks.map(f => <span key={f} className="fw-pill">{f}</span>)}
+              </div>
+            )}
           </Card>
 
           <Card title="Entry points" icon="Entry">
             <div className="entry-list">
-              {INSIGHTS.entries.map((e, i) => (
+              {(data.entries || []).map((e, i) => (
                 <div key={i} className="entry-item">
                   <div className="entry-role">{e.role}</div>
                   <div className="entry-file mono">{e.file}</div>
                 </div>
               ))}
+              {(!data.entries || data.entries.length === 0) && (
+                <div style={{color: 'var(--text-dim)', fontSize: 12}}>No entry points detected</div>
+              )}
             </div>
           </Card>
 
           <Card title="Potential issues" icon="Issue" span={2}>
             <div className="issue-list">
-              {INSIGHTS.issues.map((it, i) => (
+              {(data.issues || []).map((it, i) => (
                 <div key={i} className={"issue issue-" + it.level}>
                   <div className="issue-dot"/>
                   <div className="issue-body">
                     <div className="issue-title">{it.title}</div>
                     <div className="issue-file mono">{it.file}:{it.line}</div>
                   </div>
-                  <button className="issue-act">Ask Repono <I.ChevronRight size={11}/></button>
                 </div>
               ))}
+              {(!data.issues || data.issues.length === 0) && (
+                <div style={{color: 'var(--text-dim)', fontSize: 12}}>No issues found</div>
+              )}
             </div>
           </Card>
 
-          <Card title="Hotspots" icon="Zap">
-            <div className="hot-list">
-              {INSIGHTS.hotspots.map((h, i) => {
-                const w = Math.min(100, (h.changes / 40) * 100);
-                return (
-                  <div key={i} className="hot-row">
-                    <div className="hot-file mono">{h.file}</div>
-                    <div className="hot-bar"><div style={{ width: `${w}%` }}/></div>
-                    <div className="hot-meta mono">{h.changes} · {h.contributors}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
+          {data.hotspots && data.hotspots.length > 0 && (
+            <Card title="Hotspots" icon="Zap">
+              <div className="hot-list">
+                {data.hotspots.map((h, i) => {
+                  const w = Math.min(100, (h.changes / 40) * 100);
+                  return (
+                    <div key={i} className="hot-row">
+                      <div className="hot-file mono">{h.file}</div>
+                      <div className="hot-bar"><div style={{ width: `${w}%` }}/></div>
+                      <div className="hot-meta mono">{h.changes} · {h.contributors}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
         </div>
       </div>
 
       <style>{`
-        .insights { grid-area: main / main / ctx / ctx; display:flex; min-width: 0; min-height: 0; }
+        .insights { grid-column: 2 / -1; grid-row: 2; display:flex; min-width: 0; min-height: 0; }
         .ins-scroll { flex: 1; overflow: auto; padding: 28px 40px 40px; }
         .ins-hero { max-width: 1100px; margin: 0 auto 28px; }
         .ins-hero-label {
@@ -135,7 +157,7 @@ export default function InsightsView() {
         .card-head svg { color: var(--accent-2); }
         .stack-bar { height: 10px; border-radius: 99px; overflow: hidden; display:flex; background: #131B26; margin-bottom: 12px; }
         .stack-seg { height: 100%; }
-        .stack-legend { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+        .stack-legend { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-bottom: 14px; }
         .stack-legend-item { display:flex; align-items:center; gap: 6px; font-size: 12px; }
         .stack-legend-item .muted { color: var(--text-dim); margin-left: auto; font-size: 11px; }
         .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
@@ -153,7 +175,7 @@ export default function InsightsView() {
         .issue-list { display:flex; flex-direction: column; gap: 2px; }
         .issue {
           display: grid;
-          grid-template-columns: 10px 1fr auto;
+          grid-template-columns: 10px 1fr;
           gap: 12px; align-items: center;
           padding: 10px 12px;
           border-radius: 10px;
@@ -164,17 +186,8 @@ export default function InsightsView() {
         .issue-warn .issue-dot { background: var(--warn); box-shadow: 0 0 8px rgba(245,181,68,0.5); }
         .issue-info .issue-dot { background: var(--accent-2); box-shadow: 0 0 8px rgba(79,140,255,0.5); }
         .issue-danger .issue-dot { background: var(--danger); box-shadow: 0 0 8px rgba(240,110,110,0.5); }
-        .issue-title { font-size: 13px; color: var(--text); }
+        .issue-title { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .issue-file { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
-        .issue-act {
-          display:inline-flex; align-items:center; gap: 4px;
-          padding: 4px 8px;
-          background: transparent; border: 1px solid var(--border);
-          border-radius: 6px;
-          color: var(--text-muted); font-size: 11px; cursor: pointer;
-          transition: all 140ms ease;
-        }
-        .issue-act:hover { color: var(--accent-2); border-color: rgba(79,140,255,0.35); background: rgba(79,140,255,0.06); }
         .hot-list { display:flex; flex-direction: column; gap: 10px; }
         .hot-row { display: grid; grid-template-columns: 1fr 80px auto; gap: 10px; align-items: center; }
         .hot-file { font-size: 11px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
