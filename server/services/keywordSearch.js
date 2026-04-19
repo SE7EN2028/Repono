@@ -1,33 +1,55 @@
 import { parseRepository } from './fileParser.js';
 import { chunkRepository } from './chunker.js';
 
+const JUNK_FILES = new Set([
+  'package.json', 'package-lock.json', 'tsconfig.json',
+  'readme.md', 'changelog.md', 'license', 'license.md',
+  '.gitignore', '.eslintrc', '.prettierrc', 'yarn.lock',
+  'pnpm-lock.yaml', '.babelrc', 'jest.config.js',
+]);
+
+const JUNK_EXTENSIONS = new Set([
+  '.json', '.md', '.txt', '.yml', '.yaml', '.toml',
+  '.xml', '.lock', '.css', '.scss', '.svg',
+]);
+
+function isCodeFile(filePath) {
+  const name = filePath.split('/').pop().toLowerCase();
+  if (JUNK_FILES.has(name)) return false;
+  const ext = '.' + name.split('.').pop();
+  if (JUNK_EXTENSIONS.has(ext)) return false;
+  return true;
+}
+
 async function keywordSearch(repoPath, question, topK = 6) {
   const files = await parseRepository(repoPath);
   const chunks = chunkRepository(files);
   const words = extractKeywords(question);
 
-  const scored = chunks.map(chunk => {
-    const text = chunk.content.toLowerCase();
-    const path = chunk.metadata.filePath.toLowerCase();
-    const name = chunk.metadata.name.toLowerCase();
-    let score = 0;
+  const scored = chunks
+    .filter(chunk => isCodeFile(chunk.metadata.filePath))
+    .map(chunk => {
+      const text = chunk.content.toLowerCase();
+      const path = chunk.metadata.filePath.toLowerCase();
+      const name = chunk.metadata.name.toLowerCase();
+      let score = 0;
 
-    for (const word of words) {
-      if (name === word) score += 10;
-      else if (name.includes(word)) score += 5;
-      if (path.includes(word)) score += 3;
+      for (const word of words) {
+        if (name === word) score += 10;
+        else if (name.includes(word)) score += 5;
+        if (path.includes(word)) score += 3;
 
-      const lines = text.split('\n');
-      for (const line of lines) {
-        if (line.includes(word)) score += 1;
+        const lines = text.split('\n');
+        for (const line of lines) {
+          if (line.includes(word)) score += 1;
+        }
       }
-    }
 
-    if (chunk.metadata.tokenEstimate > 500) score *= 0.7;
-    if (chunk.metadata.tokenEstimate < 50) score *= 0.5;
+      if (chunk.metadata.tokenEstimate > 500) score *= 0.7;
+      if (chunk.metadata.tokenEstimate < 50) score *= 0.5;
 
-    return { chunk, score };
-  });
+      return { chunk, score };
+    });
 
   const filtered = scored.filter(s => s.score > 0).sort((a, b) => b.score - a.score);
 

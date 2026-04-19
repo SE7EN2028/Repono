@@ -31,10 +31,13 @@ router.post('/ask', async (req, res) => {
   try {
     const repoPath = await getRepoPath(repoId);
 
-    const [results, webResults] = await Promise.all([
-      keywordSearch(repoPath, question),
-      fetchWebContext(question),
-    ]);
+    const results = await keywordSearch(repoPath, question);
+
+    const needsWebSearch = classification.type === 'explain' &&
+      /what (?:is|does|are)|explain|how does|describe/i.test(question) &&
+      !results.some(r => r.chunk.metadata.name.toLowerCase().includes(extractConcept(question)?.toLowerCase() || ''));
+
+    const webResults = needsWebSearch ? await fetchWebContext(question) : [];
 
     const answer = buildSmartAnswer(question, results, webResults, classification.type);
 
