@@ -9,8 +9,7 @@ import InsightsView from './components/InsightsView';
 import TweaksPanel from './components/TweaksPanel';
 import ConnectModal from './components/ConnectModal';
 import SearchModal from './components/SearchModal';
-import { askQuestion } from './api';
-import { REPOS, CONTEXT_FILES } from './data/mockData';
+import { askQuestion, listRepos } from './api';
 
 const DEFAULT_TWEAKS = {
   accent: "#4F8CFF",
@@ -24,12 +23,42 @@ export default function App() {
   const [tweaksOpen, setTweaksOpen] = useState(false);
   const [view, setView] = useState("chat");
   const [repoId, setRepoId] = useState(null);
-  const [repos, setRepos] = useState(REPOS);
-  const [messages, setMessages] = useState([]);
+  const [repos, setRepos] = useState([]);
+  const [chatsByRepo, setChatsByRepo] = useState({});
   const [streaming, setStreaming] = useState(false);
-  const [activeCtx, setActiveCtx] = useState(CONTEXT_FILES[0].path);
+  const [lastSources, setLastSources] = useState([]);
+
+  const messages = chatsByRepo[repoId] || [];
+  const setMessages = (updater) => {
+    setChatsByRepo(prev => {
+      const current = prev[repoId] || [];
+      const next = typeof updater === 'function' ? updater(current) : updater;
+      return { ...prev, [repoId]: next };
+    });
+  };
   const [showConnect, setShowConnect] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+
+  useEffect(() => {
+    listRepos().then(savedRepos => {
+      if (savedRepos && savedRepos.length > 0) {
+        const mapped = savedRepos.map(r => ({
+          id: r.repoId,
+          name: r.owner + '/' + r.name,
+          branch: 'main',
+          lang: 'Mixed',
+          files: r.fileCount || 0,
+          status: r.embedded ? 'indexed' : 'parsed',
+        }));
+        setRepos(mapped);
+        setRepoId(mapped[0].id);
+      }
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setLastSources([]);
+  }, [repoId]);
 
   useEffect(() => {
     const handleKey = (e) => {
@@ -66,7 +95,7 @@ export default function App() {
     setTweaks(prev => ({ ...prev, [key]: value }));
   };
 
-  const repo = repos.find(r => r.id === repoId) || repos[0];
+  const repo = repos.find(r => r.id === repoId) || repos[0] || { id: null, name: 'No repo', branch: '-', lang: '-', files: 0, status: 'none' };
 
   const handleSend = async (text) => {
     const userMsg = {
@@ -94,6 +123,10 @@ export default function App() {
 
     try {
       const result = await askQuestion(repoId, text);
+
+      if (result.sources && result.sources.length > 0) {
+        setLastSources(result.sources);
+      }
 
       const blocks = [
         { type: "text", text: result.answer },
@@ -144,18 +177,14 @@ export default function App() {
       branch: 'main',
       lang: 'Mixed',
       files: result.fileCount,
-      status: 'indexed',
+      status: result.embedded ? 'indexed' : 'parsed',
     };
     setRepos(prev => [...prev.filter(r => r.id !== result.repoId), newRepo]);
     setRepoId(result.repoId);
-    setMessages([]);
     setView('chat');
   };
 
-  const openRef = (path) => {
-    const exists = CONTEXT_FILES.find(f => f.path === path);
-    if (exists) setActiveCtx(path);
-  };
+  const openRef = () => {};
 
   return (
     <div className={"shell view-" + view}>
@@ -174,12 +203,12 @@ export default function App() {
       {view === "chat" && (
         <>
           <ChatView messages={messages} onSend={handleSend} streaming={streaming} onOpenRef={openRef} repoConnected={!!repoId}/>
-          <ContextViewer files={CONTEXT_FILES} activePath={activeCtx} setActivePath={setActiveCtx}/>
+          <ContextViewer sources={lastSources} repoId={repoId}/>
         </>
       )}
-      {view === "map" && <CodeMap/>}
-      {view === "files" && <FilesView/>}
-      {view === "insights" && <InsightsView/>}
+      {view === "map" && <CodeMap repoId={repoId}/>}
+      {view === "files" && <FilesView repoId={repoId}/>}
+      {view === "insights" && <InsightsView repoId={repoId} repoName={repo?.name}/>}
 
       <TweaksPanel tweaks={tweaks} setTweak={setTweak} open={tweaksOpen} setOpen={setTweaksOpen}/>
 
@@ -212,8 +241,8 @@ export default function App() {
         .shell.view-map .codemap,
         .shell.view-files .files,
         .shell.view-insights .insights {
-          grid-column: main / ctx;
-          grid-row: main / ctx;
+          grid-column: 2 / -1;
+          grid-row: 2;
         }
       `}</style>
     </div>

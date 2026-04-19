@@ -5,9 +5,29 @@ import { cloneRepo, getRepoPath } from '../services/repoManager.js';
 import { indexRepository } from '../services/indexer.js';
 import { parseRepository } from '../services/fileParser.js';
 import { generateInsights } from '../services/insightGenerator.js';
+import { analyzeDependencies } from '../services/dependencyAnalyzer.js';
 
 const router = Router();
 const repoStatus = new Map();
+
+const REPOS_FILE = path.resolve('repos.json');
+
+async function loadSavedRepos() {
+  try {
+    const data = await fs.readFile(REPOS_FILE, 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    return [];
+  }
+}
+
+async function saveRepo(repo) {
+  const repos = await loadSavedRepos();
+  const existing = repos.findIndex(r => r.repoId === repo.repoId);
+  if (existing >= 0) repos[existing] = repo;
+  else repos.push(repo);
+  await fs.writeFile(REPOS_FILE, JSON.stringify(repos, null, 2));
+}
 
 router.post('/connect', async (req, res) => {
   const { repoUrl } = req.body;
@@ -20,21 +40,33 @@ router.post('/connect', async (req, res) => {
     repoStatus.set(repoUrl, { status: 'cloning', progress: 0 });
     const repo = await cloneRepo(repoUrl);
 
-    repoStatus.set(repoUrl, { status: 'indexing', progress: 20 });
+    repoStatus.set(repoUrl, { status: 'parsing', progress: 50 });
+    const { parseRepository } = await import('../services/fileParser.js');
+    const { chunkRepository } = await import('../services/chunker.js');
+    const files = await parseRepository(repo.repoPath);
+    const chunks = chunkRepository(files);
 
-    const result = await indexRepository(repo.repoId, repo.repoPath, (status, progress) => {
-      repoStatus.set(repoUrl, { status, progress, repoId: repo.repoId });
-    });
-
-    res.json({
+    const repoData = {
       repoId: repo.repoId,
       owner: repo.owner,
       name: repo.name,
-      fileCount: result.fileCount,
-      chunkCount: result.chunkCount,
-      embedded: result.embedded,
-      status: result.embedded ? 'indexed' : 'parsed'
-    });
+      url: repoUrl,
+      fileCount: files.length,
+      chunkCount: chunks.length,
+      embedded: false,
+      status: 'parsed',
+    };
+
+    await saveRepo(repoData);
+    res.json(repoData);
+
+    indexRepository(repo.repoId, repo.repoPath, (status, progress) => {
+      repoStatus.set(repoUrl, { status, progress, repoId: repo.repoId });
+    }).then(async (result) => {
+      repoData.embedded = result.embedded;
+      repoData.status = result.embedded ? 'indexed' : 'parsed';
+      await saveRepo(repoData);
+    }).catch(() => {});
   } catch (err) {
     repoStatus.set(repoUrl, { status: 'error', error: err.message });
     res.status(500).json({ error: err.message });
@@ -52,11 +84,19 @@ router.get('/status/:repoId', async (req, res) => {
 });
 
 router.get('/list', async (req, res) => {
-  const repos = Array.from(repoStatus.entries()).map(([url, status]) => ({
-    url,
-    ...status
-  }));
+  const repos = await loadSavedRepos();
   res.json({ repositories: repos });
+});
+
+router.get('/dependencies/:repoId', async (req, res) => {
+  const { repoId } = req.params;
+  try {
+    const repoPath = await getRepoPath(repoId);
+    const graph = await analyzeDependencies(repoPath);
+    res.json(graph);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.get('/insights/:repoId', async (req, res) => {
