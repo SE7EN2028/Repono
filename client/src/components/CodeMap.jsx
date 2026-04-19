@@ -1,21 +1,32 @@
 import { useState, useEffect, useRef } from 'react';
 import * as I from './Icons';
-import { GRAPH } from '../data/mockData';
+import { getRepoDependencies } from '../api';
 
 const GROUP_COLORS = {
   app: "#6FA3FF",
   svc: "#A983FF",
   pkg: "#3BD68C",
   infra: "#F5B544",
+  test: "#FF7BB0",
 };
 
-export default function CodeMap() {
+export default function CodeMap({ repoId }) {
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [hover, setHover] = useState(null);
   const [dragging, setDragging] = useState(null);
   const wrapRef = useRef(null);
   const [dims, setDims] = useState({ w: 1000, h: 700 });
+  const [graph, setGraph] = useState({ nodes: [], edges: [] });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!repoId) return;
+    setLoading(true);
+    getRepoDependencies(repoId)
+      .then(data => { setGraph(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, [repoId]);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -33,7 +44,7 @@ export default function CodeMap() {
   };
   const onMouseUp = () => setDragging(null);
 
-  const nodeById = Object.fromEntries(GRAPH.nodes.map(n => [n.id, n]));
+  const nodeById = Object.fromEntries(graph.nodes.map(n => [n.id, n]));
   const hoverNode = hover ? nodeById[hover] : null;
   const nodeXY = (n) => ({ x: n.x * dims.w, y: n.y * dims.h });
 
@@ -43,10 +54,12 @@ export default function CodeMap() {
         <div className="cm-title">
           <I.Map size={14}/>
           <span>Code Map</span>
-          <span className="cm-count mono">{GRAPH.nodes.length} modules · {GRAPH.edges.length} edges</span>
+          <span className="cm-count mono">
+            {loading ? 'loading...' : `${graph.nodes.length} modules · ${graph.edges.length} edges`}
+          </span>
         </div>
         <div className="cm-legend">
-          {Object.entries({ "App": "app", "Service": "svc", "Package": "pkg", "Infra": "infra" }).map(([label, k]) => (
+          {Object.entries({ "App": "app", "Service": "svc", "Package": "pkg", "Infra": "infra", "Test": "test" }).map(([label, k]) => (
             <div key={k} className="legend-item">
               <span className="legend-dot" style={{ background: GROUP_COLORS[k] }}/>
               <span>{label}</span>
@@ -86,7 +99,8 @@ export default function CodeMap() {
             </filter>
           </defs>
           <g transform={`translate(${offset.x} ${offset.y}) scale(${zoom})`}>
-            {GRAPH.edges.map(([a, b], i) => {
+            {graph.edges.map(([a, b], i) => {
+              if (!nodeById[a] || !nodeById[b]) return null;
               const na = nodeXY(nodeById[a]);
               const nb = nodeXY(nodeById[b]);
               const midX = (na.x + nb.x) / 2;
@@ -104,10 +118,10 @@ export default function CodeMap() {
                 />
               );
             })}
-            {GRAPH.nodes.map(n => {
+            {graph.nodes.map(n => {
               const { x, y } = nodeXY(n);
               const active = hover === n.id;
-              const color = GROUP_COLORS[n.group];
+              const color = GROUP_COLORS[n.group] || GROUP_COLORS.pkg;
               return (
                 <g
                   key={n.id}
@@ -127,7 +141,7 @@ export default function CodeMap() {
                     fontFamily="JetBrains Mono, monospace"
                     style={{ transition: "all 160ms ease", pointerEvents: "none" }}
                   >
-                    {n.label}
+                    {n.label.length > 20 ? n.label.slice(-20) : n.label}
                   </text>
                 </g>
               );
@@ -145,18 +159,18 @@ export default function CodeMap() {
           >
             <div className="cm-tt-head">
               <span className="cm-tt-label mono">{hoverNode.label}</span>
-              <span className="cm-tt-group" style={{ color: GROUP_COLORS[hoverNode.group] }}>{hoverNode.group}</span>
+              <span className="cm-tt-group" style={{ color: GROUP_COLORS[hoverNode.group] || GROUP_COLORS.pkg }}>{hoverNode.group}</span>
             </div>
             <div className="cm-tt-body">{hoverNode.summary}</div>
             <div className="cm-tt-foot mono">
-              {GRAPH.edges.filter(([a, b]) => a === hoverNode.id || b === hoverNode.id).length} edges
+              {graph.edges.filter(([a, b]) => a === hoverNode.id || b === hoverNode.id).length} edges
             </div>
           </div>
         )}
       </div>
 
       <style>{`
-        .codemap { grid-area: main / main / ctx / ctx; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+        .codemap { grid-column: 2 / -1; grid-row: 2; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
         .cm-head {
           display:flex; align-items:center; gap: 16px;
           padding: 12px 20px;
