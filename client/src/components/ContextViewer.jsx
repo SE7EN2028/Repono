@@ -23,7 +23,7 @@ export default function ContextViewer({ sources, repoId }) {
   }));
 
   useEffect(() => {
-    if (files.length > 0 && !activePath) {
+    if (files.length > 0) {
       setActivePath(files[0].path);
     }
   }, [sources]);

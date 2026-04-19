@@ -4,7 +4,6 @@ import { chunkRepository } from './chunker.js';
 async function keywordSearch(repoPath, question, topK = 6) {
   const files = await parseRepository(repoPath);
   const chunks = chunkRepository(files);
-
   const words = extractKeywords(question);
 
   const scored = chunks.map(chunk => {
@@ -16,7 +15,6 @@ async function keywordSearch(repoPath, question, topK = 6) {
     for (const word of words) {
       if (name === word) score += 10;
       else if (name.includes(word)) score += 5;
-
       if (path.includes(word)) score += 3;
 
       const lines = text.split('\n');
@@ -31,8 +29,19 @@ async function keywordSearch(repoPath, question, topK = 6) {
     return { chunk, score };
   });
 
-  return scored
-    .filter(s => s.score > 0)
+  const filtered = scored.filter(s => s.score > 0).sort((a, b) => b.score - a.score);
+
+  const byFile = {};
+  for (const item of filtered) {
+    const file = item.chunk.metadata.filePath;
+    if (!byFile[file]) {
+      byFile[file] = item;
+    } else if (item.chunk.metadata.tokenEstimate > byFile[file].chunk.metadata.tokenEstimate) {
+      byFile[file] = { ...item, score: Math.max(item.score, byFile[file].score) };
+    }
+  }
+
+  return Object.values(byFile)
     .sort((a, b) => b.score - a.score)
     .slice(0, topK);
 }
@@ -48,136 +57,108 @@ function extractKeywords(question) {
 
 function buildAnswer(question, results) {
   if (results.length === 0) {
-    return "No matching code found. Try different keywords like function names, file names, or specific terms from the code.";
+    return "No matching code found. Try using specific function names, file names, or technical terms.";
   }
 
-  const questionLower = question.toLowerCase();
   let answer = '';
 
-  const isExplain = /what does|how does|explain|describe|purpose|mean/.test(questionLower);
-  const isLocate = /where is|find|locate|which file|implemented/.test(questionLower);
-  const isDebug = /bug|error|fix|issue|wrong|problem/.test(questionLower);
+  results.slice(0, 4).forEach((r, i) => {
+    const m = r.chunk.metadata;
+    const analysis = analyzeCode(r.chunk);
 
-  if (isLocate) {
-    answer += `Found in **${results.length}** locations:\n\n`;
-    results.forEach((r) => {
-      const m = r.chunk.metadata;
-      const desc = describeChunk(r.chunk);
-      answer += `**${m.filePath}** → \`${m.name}\` (lines ${m.startLine}–${m.endLine})\n`;
-      if (desc) answer += `${desc}\n`;
-      answer += '\n';
-    });
-  } else if (isExplain) {
-    const top = results[0];
-    const m = top.chunk.metadata;
-    const desc = describeChunk(top.chunk);
-    answer += `**${m.filePath}** → \`${m.name}\`\n\n`;
-    if (desc) answer += `${desc}\n\n`;
-    answer += formatCodeSnippet(top.chunk, question);
-    if (results.length > 1) {
-      answer += '\n\n**Also found in:**\n';
-      results.slice(1, 4).forEach(r => {
-        const d = describeChunk(r.chunk);
-        answer += `- \`${r.chunk.metadata.name}\` in **${r.chunk.metadata.filePath}**`;
-        if (d) answer += ` — ${d}`;
-        answer += '\n';
-      });
+    answer += `### ${m.filePath}\n`;
+    answer += `**\`${m.name}\`** (lines ${m.startLine}–${m.endLine})\n\n`;
+
+    if (analysis.length > 0) {
+      answer += analysis.join('\n') + '\n\n';
     }
-  } else if (isDebug) {
-    answer += `Relevant code for debugging:\n\n`;
-    results.slice(0, 3).forEach((r, i) => {
-      const m = r.chunk.metadata;
-      const desc = describeChunk(r.chunk);
-      answer += `**${i + 1}. ${m.filePath}** → \`${m.name}\`\n`;
-      if (desc) answer += `${desc}\n`;
-      answer += formatCodeSnippet(r.chunk, question);
-      answer += '\n\n';
-    });
-  } else {
-    results.slice(0, 4).forEach((r, i) => {
-      const m = r.chunk.metadata;
-      const desc = describeChunk(r.chunk);
-      answer += `**${i + 1}. ${m.filePath}** → \`${m.name}\` (lines ${m.startLine}–${m.endLine})\n`;
-      if (desc) answer += `${desc}\n`;
-      answer += formatCodeSnippet(r.chunk, question);
-      answer += '\n\n';
-    });
-  }
+
+    const snippet = getRelevantSnippet(r.chunk, question);
+    if (snippet) {
+      answer += '```\n' + snippet + '\n```\n\n';
+    }
+  });
 
   return answer.trim();
 }
 
-function describeChunk(chunk) {
+function analyzeCode(chunk) {
   const code = chunk.content;
-  const lines = code.split('\n');
-  const parts = [];
+  const points = [];
 
-  const asyncMatch = code.match(/async\s+function\s+(\w+)|async\s+(\w+)\s*\(/);
-  if (asyncMatch) {
-    const name = asyncMatch[1] || asyncMatch[2];
-    parts.push(`\`${name}\` is an **async function** (uses await for asynchronous operations)`);
+  const funcMatch = code.match(/(?:async\s+)?function\s+(\w+)|(?:const|let)\s+(\w+)\s*=\s*(?:async\s*)?\(/);
+  if (funcMatch) {
+    const name = funcMatch[1] || funcMatch[2];
+    const isAsync = /async/.test(code.slice(0, code.indexOf(name)));
+    points.push(`Defines ${isAsync ? 'async ' : ''}function **\`${name}\`**`);
   }
 
-  const awaits = code.match(/await\s+[\w.]+/g);
+  const params = code.match(/function\s+\w+\s*\(([^)]*)\)|=>\s*\{|(\w+)\s*=\s*(?:async\s*)?\(([^)]*)\)/);
+  if (params) {
+    const paramStr = params[1] || params[3];
+    if (paramStr && paramStr.trim()) {
+      points.push(`Parameters: \`${paramStr.trim()}\``);
+    }
+  }
+
+  const awaits = code.match(/await\s+([\w.]+(?:\([^)]*\))?)/g);
   if (awaits) {
-    const unique = [...new Set(awaits.map(a => a.replace('await ', '')))];
-    parts.push(`Awaits: ${unique.map(a => '`' + a + '`').join(', ')}`);
+    const calls = [...new Set(awaits.map(a => a.replace('await ', '').replace(/\(.*/, '()')))];
+    points.push(`Awaits: ${calls.map(c => '`' + c + '`').join(', ')}`);
+  }
+
+  const conditions = (code.match(/if\s*\(/g) || []).length;
+  if (conditions > 0) points.push(`${conditions} conditional branch${conditions > 1 ? 'es' : ''}`);
+
+  const tryCatch = /try\s*\{/.test(code);
+  if (tryCatch) points.push('Has error handling (try/catch)');
+
+  const returnMatch = code.match(/return\s+(\{[^}]+\}|[\w.]+(?:\([^)]*\))?)/);
+  if (returnMatch) {
+    const ret = returnMatch[1].slice(0, 50);
+    points.push(`Returns: \`${ret}\``);
   }
 
   const imports = code.match(/import\s+.*?from\s+['"]([^'"]+)['"]/g);
-  if (imports && imports.length > 0) {
-    parts.push(`Imports from ${imports.length} module(s)`);
+  if (imports) {
+    const deps = imports.map(i => i.match(/from\s+['"]([^'"]+)['"]/)[1]);
+    points.push(`Depends on: ${deps.map(d => '`' + d + '`').join(', ')}`);
   }
 
-  const exports = code.match(/export\s+(default\s+)?(?:function|class|const|let)\s+(\w+)/g);
-  if (exports) {
-    parts.push(`Exports: ${exports.map(e => '`' + e.split(/\s+/).pop() + '`').join(', ')}`);
-  }
-
-  const tryCatch = /try\s*\{/.test(code);
-  if (tryCatch) parts.push('Has error handling (try/catch)');
-
-  const returns = code.match(/return\s+.+/g);
-  if (returns && returns.length > 0) {
-    const lastReturn = returns[returns.length - 1].trim().slice(0, 60);
-    parts.push(`Returns: \`${lastReturn}\``);
-  }
-
-  return parts.join('. ');
+  return points;
 }
 
-function formatCodeSnippet(chunk, question) {
+function getRelevantSnippet(chunk, question) {
   const keywords = extractKeywords(question);
   const lines = chunk.content.split('\n');
 
-  const relevantLines = [];
+  const matchedLines = [];
   for (let i = 0; i < lines.length; i++) {
     const lower = lines[i].toLowerCase();
     if (keywords.some(k => lower.includes(k))) {
       const start = Math.max(0, i - 2);
       const end = Math.min(lines.length, i + 3);
       for (let j = start; j < end; j++) {
-        if (!relevantLines.includes(j)) relevantLines.push(j);
+        if (!matchedLines.includes(j)) matchedLines.push(j);
       }
     }
   }
 
-  if (relevantLines.length === 0) {
-    const preview = lines.slice(0, 6).join('\n');
-    return '```\n' + preview + '\n```';
+  if (matchedLines.length === 0) {
+    return lines.slice(0, 12).join('\n');
   }
 
-  relevantLines.sort((a, b) => a - b);
+  matchedLines.sort((a, b) => a - b);
 
   let snippet = '';
   let lastLine = -2;
-  for (const idx of relevantLines) {
+  for (const idx of matchedLines) {
     if (idx - lastLine > 1 && lastLine >= 0) snippet += '  ...\n';
     snippet += lines[idx] + '\n';
     lastLine = idx;
   }
 
-  return '```\n' + snippet.trimEnd() + '\n```';
+  return snippet.trimEnd();
 }
 
 const STOP_WORDS = new Set([
@@ -189,7 +170,7 @@ const STOP_WORDS = new Set([
   'who', 'whom', 'its', 'it', 'they', 'them', 'their', 'you', 'your',
   'from', 'about', 'into', 'through', 'during', 'before', 'after',
   'tell', 'me', 'show', 'give', 'get', 'use', 'used', 'using',
-  'does', 'work', 'works', 'code', 'function', 'file',
+  'does', 'work', 'works', 'code', 'function', 'file', 'please',
 ]);
 
 export { keywordSearch, buildAnswer };

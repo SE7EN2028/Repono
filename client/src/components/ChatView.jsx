@@ -8,9 +8,26 @@ function renderInline(t) {
     .replace(/\*\*([^*]+)\*\*/g, '<strong style="color: var(--text); font-weight: 600;">$1</strong>');
 }
 
+function renderMarkdown(text) {
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('```')) {
+      const code = part.replace(/^```\w*\n?/, '').replace(/\n?```$/, '');
+      return <CodeBlock key={i} code={code} startLine={1}/>;
+    }
+    const lines = part.split('\n').filter(l => l.trim());
+    return lines.map((line, j) => {
+      if (line.startsWith('- ')) {
+        return <div key={`${i}-${j}`} className="block-text" style={{paddingLeft: 12}} dangerouslySetInnerHTML={{ __html: '• ' + renderInline(line.slice(2)) }}/>;
+      }
+      return <div key={`${i}-${j}`} className="block-text" dangerouslySetInnerHTML={{ __html: renderInline(line) }}/>;
+    });
+  });
+}
+
 function Block({ block, onOpenRef }) {
   if (block.type === "text") {
-    return <div className="block-text" dangerouslySetInnerHTML={{ __html: renderInline(block.text) }}/>;
+    return <div className="block-text-wrap">{renderMarkdown(block.text)}</div>;
   }
   if (block.type === "code") {
     return <CodeBlock code={block.code} startLine={block.startLine} fileHeader={block.file}/>;
@@ -85,7 +102,7 @@ function TypingIndicator() {
     <div className="typing">
       <div className="assistant-av"><I.Sparkle size={12}/></div>
       <div className="dots"><span/><span/><span/></div>
-      <span className="thinking mono">searching embeddings…</span>
+      <span className="thinking mono">searching codebase…</span>
     </div>
   );
 }
@@ -131,13 +148,20 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
     <div className="chat">
       <div className="chat-scroll" ref={scrollRef}>
         <div className="chat-inner">
+          {messages.length === 0 && !streaming && (
+            <div className="chat-welcome">
+              <div className="welcome-icon"><I.Sparkle size={28}/></div>
+              <h2>Repono</h2>
+              <p>{repoConnected ? 'Ask anything about your codebase' : 'Connect a repository to get started'}</p>
+            </div>
+          )}
           {messages.map(m => <Message key={m.id} m={m} onOpenRef={onOpenRef}/>)}
           {streaming && <TypingIndicator/>}
         </div>
       </div>
 
       <div className="composer-wrap">
-        {messages.length <= 1 && (
+        {messages.length === 0 && (
           <div className="suggest">
             {suggestions.map(s => (
               <button key={s} className="suggest-pill" onClick={() => setInput(s)}>
@@ -184,7 +208,12 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
       <style>{`
         .chat { grid-area: main; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
         .chat-scroll { flex: 1; overflow: auto; }
-        .chat-inner { max-width: 820px; margin: 0 auto; padding: 32px 28px 24px; display: flex; flex-direction: column; gap: 22px; }
+        .chat-inner { max-width: 820px; margin: 0 auto; padding: 32px 28px 24px; display: flex; flex-direction: column; gap: 22px; min-height: 100%; }
+        .chat-welcome { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; gap: 8px; padding: 60px 0; }
+        .chat-welcome .welcome-icon { color: var(--accent-2); margin-bottom: 8px; }
+        .chat-welcome h2 { font-size: 24px; font-weight: 600; color: var(--text); margin: 0; }
+        .chat-welcome p { font-size: 14px; color: var(--text-muted); margin: 0; }
+        .block-text-wrap { display: flex; flex-direction: column; gap: 8px; }
         .composer-wrap { padding: 10px 28px 20px; }
         .composer-wrap > * { max-width: 820px; margin-left: auto; margin-right: auto; }
         .suggest { display:flex; flex-wrap: wrap; gap: 6px; padding: 0 0 10px; }
