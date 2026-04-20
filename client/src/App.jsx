@@ -25,17 +25,51 @@ export default function App() {
   const [view, setView] = useState("chat");
   const [repoId, setRepoId] = useState(null);
   const [repos, setRepos] = useState([]);
-  const [chatsByRepo, setChatsByRepo] = useState({});
+  const [threadsByRepo, setThreadsByRepo] = useState({});
+  const [activeThreadId, setActiveThreadId] = useState(null);
   const [streaming, setStreaming] = useState(false);
   const [lastSources, setLastSources] = useState([]);
 
-  const messages = chatsByRepo[repoId] || [];
+  const repoThreads = (threadsByRepo[repoId] || []);
+  const activeThread = repoThreads.find(t => t.id === activeThreadId);
+  const messages = activeThread ? activeThread.messages : [];
+
   const setMessages = (updater) => {
-    setChatsByRepo(prev => {
-      const current = prev[repoId] || [];
-      const next = typeof updater === 'function' ? updater(current) : updater;
-      return { ...prev, [repoId]: next };
+    setThreadsByRepo(prev => {
+      const threads = prev[repoId] || [];
+      return {
+        ...prev,
+        [repoId]: threads.map(t =>
+          t.id === activeThreadId
+            ? { ...t, messages: typeof updater === 'function' ? updater(t.messages) : updater }
+            : t
+        ),
+      };
     });
+  };
+
+  const createThread = (firstMessage) => {
+    const id = 't' + Date.now();
+    const title = firstMessage.length > 40 ? firstMessage.slice(0, 40) + '...' : firstMessage;
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const thread = { id, title, time, messages: [] };
+    setThreadsByRepo(prev => ({
+      ...prev,
+      [repoId]: [thread, ...(prev[repoId] || [])],
+    }));
+    setActiveThreadId(id);
+    return id;
+  };
+
+  const handleNewThread = () => {
+    const id = createThread('New conversation');
+    setView('chat');
+  };
+
+  const handleSwitchThread = (threadId) => {
+    setActiveThreadId(threadId);
+    setLastSources([]);
+    setView('chat');
   };
   const [showConnect, setShowConnect] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -66,6 +100,9 @@ export default function App() {
 
   useEffect(() => {
     setLastSources([]);
+    const threads = threadsByRepo[repoId] || [];
+    if (threads.length > 0) setActiveThreadId(threads[0].id);
+    else setActiveThreadId(null);
   }, [repoId]);
 
   useEffect(() => {
@@ -106,6 +143,49 @@ export default function App() {
   const repo = repos.find(r => r.id === repoId) || repos[0] || { id: null, name: 'No repo', branch: '-', lang: '-', files: 0, status: 'none' };
 
   const handleSend = async (text) => {
+    let threadId = activeThreadId;
+
+    if (!threadId || !repoThreads.find(t => t.id === threadId)) {
+      threadId = 't' + Date.now();
+      const title = text.length > 40 ? text.slice(0, 40) + '...' : text;
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setThreadsByRepo(prev => ({
+        ...prev,
+        [repoId]: [{ id: threadId, title, time, messages: [] }, ...(prev[repoId] || [])],
+      }));
+      setActiveThreadId(threadId);
+    } else {
+      setThreadsByRepo(prev => ({
+        ...prev,
+        [repoId]: (prev[repoId] || []).map(t =>
+          t.id === threadId && t.title === 'New conversation'
+            ? { ...t, title: text.length > 40 ? text.slice(0, 40) + '...' : text }
+            : t
+        ),
+      }));
+    }
+
+    const addMsg = (msg) => {
+      setThreadsByRepo(prev => ({
+        ...prev,
+        [repoId]: (prev[repoId] || []).map(t =>
+          t.id === threadId ? { ...t, messages: [...t.messages, msg] } : t
+        ),
+      }));
+    };
+
+    const updateLastMsg = (updater) => {
+      setThreadsByRepo(prev => ({
+        ...prev,
+        [repoId]: (prev[repoId] || []).map(t => {
+          if (t.id !== threadId) return t;
+          const msgs = [...t.messages];
+          msgs[msgs.length - 1] = updater(msgs[msgs.length - 1]);
+          return { ...t, messages: msgs };
+        }),
+      }));
+    };
+
     const userMsg = {
       id: "u" + Date.now(),
       role: "user",
@@ -113,18 +193,18 @@ export default function App() {
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
     const aid = "a" + Date.now();
-    setMessages(m => [...m, userMsg]);
+    addMsg(userMsg);
     setStreaming(true);
 
     if (!repoId) {
-      setMessages(m => [...m, {
+      addMsg({
         id: aid,
         role: "assistant",
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         blocks: [
           { type: "callout", kind: "warn", text: "No repository connected yet. Click **Add repository** in the sidebar to connect a GitHub repo first." }
         ],
-      }]);
+      });
       setStreaming(false);
       return;
     }
@@ -157,21 +237,21 @@ export default function App() {
         text: `Query type: **${result.queryType}** · Confidence: **${Math.round((result.confidence || 0) * 100)}%**`,
       });
 
-      setMessages(m => [...m, {
+      addMsg({
         id: aid,
         role: "assistant",
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         blocks,
-      }]);
+      });
     } catch (err) {
-      setMessages(m => [...m, {
+      addMsg({
         id: aid,
         role: "assistant",
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         blocks: [
           { type: "callout", kind: "warn", text: `Error: ${err.message}` }
         ],
-      }]);
+      });
     }
 
     setStreaming(false);
@@ -225,6 +305,10 @@ export default function App() {
         setRepoId={setRepoId}
         onAddRepo={() => setShowConnect(true)}
         onRemoveRepo={handleRemoveRepo}
+        threads={repoThreads}
+        activeThread={activeThreadId}
+        onSwitchThread={handleSwitchThread}
+        onNewThread={handleNewThread}
       />
       <TopBar repo={repo} onOpenSearch={() => setShowSearch(true)}/>
 

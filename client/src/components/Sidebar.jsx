@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as I from './Icons';
-import { NAV, RECENT_THREADS } from '../data/mockData';
+import { NAV } from '../data/mockData';
 
 function StatusDot({ status, progress }) {
   if (status === "processing") {
@@ -19,7 +19,7 @@ function StatusDot({ status, progress }) {
   );
 }
 
-export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, repos, setRepoId, onAddRepo, onRemoveRepo }) {
+export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, repos, setRepoId, onAddRepo, onRemoveRepo, threads, activeThread, onSwitchThread, onNewThread }) {
   const [repoOpen, setRepoOpen] = useState(false);
   return (
     <aside className={"sidebar" + (collapsed ? " collapsed" : "")}>
@@ -118,13 +118,16 @@ export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, 
         <div className="threads">
           <div className="threads-head">
             <span>Recent threads</span>
-            <button className="icon-btn small"><I.Plus size={12}/></button>
+            <button className="icon-btn small" onClick={() => onNewThread && onNewThread()}><I.Plus size={12}/></button>
           </div>
           <div className="threads-list">
-            {RECENT_THREADS.map(t => (
-              <button key={t.id} className={"thread" + (t.active ? " active" : "")}>
+            {(threads || []).length === 0 && (
+              <div className="thread-empty">No conversations yet</div>
+            )}
+            {(threads || []).map(t => (
+              <button key={t.id} className={"thread" + (t.id === activeThread ? " active" : "")} onClick={() => onSwitchThread && onSwitchThread(t.id)}>
                 <div className="thread-title">{t.title}</div>
-                <div className="thread-meta mono">{t.when}</div>
+                <div className="thread-meta mono">{t.time}</div>
               </button>
             ))}
           </div>
@@ -291,6 +294,7 @@ export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, 
         .thread.active { background: #121B27; color: var(--text); }
         .thread-title { font-size: 12.5px; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; }
         .thread-meta { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
+        .thread-empty { font-size: 11.5px; color: var(--text-dim); padding: 8px; text-align: center; }
         .sidebar-foot {
           border-top: 1px solid var(--border);
           padding: 10px;

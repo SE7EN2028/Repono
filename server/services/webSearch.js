@@ -170,6 +170,34 @@ function getBuiltinExplanation(query) {
       title: 'Desktop Framework',
       text: 'Electron is a framework for building cross-platform desktop applications using web technologies (HTML, CSS, JavaScript). It combines Chromium for rendering and Node.js for backend capabilities. Apps have a main process (Node.js) and renderer processes (browser windows).',
     },
+    'nodejs': {
+      title: 'Runtime Environment',
+      text: 'Node.js is a JavaScript runtime built on Chrome\'s V8 engine. It allows running JavaScript on the server side. Node.js uses an event-driven, non-blocking I/O model that makes it efficient for building scalable network applications like web servers, APIs, and real-time apps.',
+    },
+    'npm': {
+      title: 'Package Manager',
+      text: 'npm (Node Package Manager) is the default package manager for Node.js. It manages project dependencies defined in package.json. Commands: npm install (install deps), npm run (run scripts), npm init (create project). The node_modules folder contains installed packages.',
+    },
+    'git': {
+      title: 'Version Control',
+      text: 'Git is a distributed version control system for tracking changes in source code. It enables collaboration through branches, commits, merges, and pull requests. Common commands: git add, git commit, git push, git pull, git branch.',
+    },
+    'css': {
+      title: 'Web Styling',
+      text: 'CSS (Cascading Style Sheets) is used to style HTML elements. It controls layout, colors, fonts, spacing, and animations. Modern CSS includes flexbox, grid, custom properties (variables), and media queries for responsive design.',
+    },
+    'html': {
+      title: 'Web Markup',
+      text: 'HTML (HyperText Markup Language) is the standard markup language for creating web pages. It defines the structure and content of a page using elements like headings, paragraphs, links, images, forms, and semantic tags.',
+    },
+    'javascript': {
+      title: 'Programming Language',
+      text: 'JavaScript is a high-level, interpreted programming language used for web development. It runs in browsers (frontend) and on servers via Node.js (backend). It supports object-oriented, functional, and event-driven programming paradigms.',
+    },
+    'typescript': {
+      title: 'Programming Language',
+      text: 'TypeScript is a superset of JavaScript that adds static type checking. It compiles to plain JavaScript and helps catch errors at compile time. Features include interfaces, generics, enums, and type inference.',
+    },
     'preload': {
       title: 'Electron Security',
       text: 'A preload script in Electron runs before the renderer process loads. It has access to both Node.js APIs and the DOM. With contextIsolation enabled, it acts as a secure bridge — using contextBridge to expose only specific functions to the renderer.',
