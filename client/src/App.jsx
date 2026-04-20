@@ -9,7 +9,8 @@ import InsightsView from './components/InsightsView';
 import TweaksPanel from './components/TweaksPanel';
 import ConnectModal from './components/ConnectModal';
 import SearchModal from './components/SearchModal';
-import { askQuestion, listRepos } from './api';
+import ConfirmDialog from './components/ConfirmDialog';
+import { askQuestion, listRepos, removeRepo } from './api';
 
 const DEFAULT_TWEAKS = {
   accent: "#4F8CFF",
@@ -38,18 +39,25 @@ export default function App() {
   };
   const [showConnect, setShowConnect] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState(null);
 
   useEffect(() => {
     listRepos().then(savedRepos => {
       if (savedRepos && savedRepos.length > 0) {
-        const mapped = savedRepos.map(r => ({
-          id: r.repoId,
-          name: r.owner + '/' + r.name,
-          branch: 'main',
-          lang: 'Mixed',
-          files: r.fileCount || 0,
-          status: r.embedded ? 'indexed' : 'parsed',
-        }));
+        const seen = new Set();
+        const mapped = [];
+        for (const r of savedRepos) {
+          if (seen.has(r.repoId)) continue;
+          seen.add(r.repoId);
+          mapped.push({
+            id: r.repoId,
+            name: r.owner + '/' + r.name,
+            branch: 'main',
+            lang: 'Mixed',
+            files: r.fileCount || 0,
+            status: r.embedded ? 'indexed' : 'parsed',
+          });
+        }
         setRepos(mapped);
         setRepoId(mapped[0].id);
       }
@@ -184,6 +192,25 @@ export default function App() {
     setView('chat');
   };
 
+  const handleRemoveRepo = (id) => {
+    setRemoveTarget(id);
+  };
+
+  const confirmRemove = async () => {
+    const id = removeTarget;
+    setRemoveTarget(null);
+    try {
+      await removeRepo(id);
+      setRepos(prev => prev.filter(r => r.id !== id));
+      if (repoId === id) {
+        const remaining = repos.filter(r => r.id !== id);
+        setRepoId(remaining.length > 0 ? remaining[0].id : null);
+      }
+    } catch (err) {
+      console.log('Remove failed:', err.message);
+    }
+  };
+
   const openRef = () => {};
 
   return (
@@ -197,6 +224,7 @@ export default function App() {
         repos={repos}
         setRepoId={setRepoId}
         onAddRepo={() => setShowConnect(true)}
+        onRemoveRepo={handleRemoveRepo}
       />
       <TopBar repo={repo} onOpenSearch={() => setShowSearch(true)}/>
 
@@ -224,6 +252,15 @@ export default function App() {
           onClose={() => setShowSearch(false)}
           onAsk={(q) => { setView('chat'); handleSend(q); }}
           onNavigate={setView}
+        />
+      )}
+
+      {removeTarget && (
+        <ConfirmDialog
+          title="Remove Repository"
+          message={`This will delete all indexed data for "${(repos.find(r => r.id === removeTarget) || {}).name || removeTarget}". This action cannot be undone.`}
+          onConfirm={confirmRemove}
+          onCancel={() => setRemoveTarget(null)}
         />
       )}
 
