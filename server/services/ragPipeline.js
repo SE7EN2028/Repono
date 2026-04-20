@@ -6,7 +6,8 @@ import { parseRepository } from './fileParser.js';
 import { chunkRepository } from './chunker.js';
 
 let groq;
-function getClient() {
+function getClient(apiKey) {
+  if (apiKey) return new Groq({ apiKey });
   if (!groq) groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
   return groq;
 }
@@ -20,11 +21,12 @@ const SYSTEM_PROMPTS = {
   dependency: `You are a dependency analyst. You are given code snippets from a repository. Analyze imports, dependencies, and relationships between modules.`,
 };
 
-async function queryWithGroq(repoId, question) {
+async function queryWithGroq(repoId, question, options = {}) {
   const classification = classifyQuery(question);
   const repoPath = await getRepoPath(repoId);
+  const topK = options.maxResults || 8;
 
-  let results = await keywordSearch(repoPath, question, 8);
+  let results = await keywordSearch(repoPath, question, topK);
   let sources;
 
   if (results.length === 0) {
@@ -38,7 +40,7 @@ async function queryWithGroq(repoId, question) {
       if (seen.has(file)) continue;
       seen.add(file);
       topChunks.push({ chunk, score: 0 });
-      if (topChunks.length >= 10) break;
+      if (topChunks.length >= topK) break;
     }
     results = topChunks;
   }
@@ -58,8 +60,8 @@ async function queryWithGroq(repoId, question) {
 
   const systemPrompt = SYSTEM_PROMPTS[classification.type] || SYSTEM_PROMPTS.explain;
 
-  const response = await getClient().chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+  const response = await getClient(options.groqKey).chat.completions.create({
+    model: options.model || 'llama-3.3-70b-versatile',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: `Question: ${question}\n\nRelevant code from the repository:\n\n${context}` },

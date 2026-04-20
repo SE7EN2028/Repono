@@ -134,7 +134,8 @@ export default function App() {
     root.style.setProperty("--accent-soft", `rgba(${r}, ${g}, ${b}, 0.14)`);
     root.style.setProperty("--accent-glow", `rgba(${r}, ${g}, ${b}, 0.35)`);
     document.body.style.setProperty("--top-h", tweaks.density === "compact" ? "46px" : "52px");
-  }, [tweaks, settings.accent]);
+    document.documentElement.style.fontSize = (settings.fontSize || '14') + 'px';
+  }, [tweaks, settings.accent, settings.fontSize]);
 
   useEffect(() => {
     if (tweaks.showAmbientGlow) document.body.style.setProperty("--ambient-opacity", "1");
@@ -220,7 +221,7 @@ export default function App() {
 
     try {
       setProfile(p => ({ ...p, queries: (p.queries || 0) + 1 }));
-      const result = await askQuestion(repoId, text);
+      const result = await askQuestion(repoId, text, settings);
 
       if (result.sources && result.sources.length > 0) {
         setLastSources(result.sources);

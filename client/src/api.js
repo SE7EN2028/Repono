@@ -24,11 +24,11 @@ export async function listRepos() {
   return data.repositories;
 }
 
-export async function askQuestion(repoId, question) {
+export async function askQuestion(repoId, question, settings = {}) {
   const response = await fetch(`${API_URL}/query/ask`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ repoId, question }),
+    body: JSON.stringify({ repoId, question, model: settings.model, maxResults: settings.maxResults, groqKey: settings.groqKey }),
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error);
