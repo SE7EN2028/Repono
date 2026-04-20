@@ -1,4 +1,5 @@
 import * as I from './Icons';
+import ProfileDropdown from './ProfileDropdown';
 
 function IndexStatus({ status, progress, files }) {
   if (status === "processing") {
@@ -9,17 +10,18 @@ function IndexStatus({ status, progress, files }) {
       </div>
     );
   }
+  if (!files) return null;
   return (
     <div className="idx idx-ok">
       <span className="idx-dot"/>
-      <span>Indexed</span>
+      <span>{status === 'indexed' ? 'Indexed' : 'Parsed'}</span>
       <span className="idx-sep">·</span>
       <span className="mono">{files.toLocaleString()} files</span>
     </div>
   );
 }
 
-export default function TopBar({ repo, onOpenSearch }) {
+export default function TopBar({ repo, onOpenSearch, onOpenSettings, profile, setProfile }) {
   return (
     <header className="topbar">
       <div className="tb-left">
@@ -39,15 +41,10 @@ export default function TopBar({ repo, onOpenSearch }) {
       </button>
 
       <div className="tb-right">
-        <button className="ghost-pill">
-          <I.Sparkle size={13}/>
-          <span>Embeddings · v3</span>
+        <button className="icon-btn" onClick={onOpenSettings} title="Settings">
+          <I.Settings size={15}/>
         </button>
-        <button className="icon-btn"><I.Settings size={15}/></button>
-        <div className="avatar">
-          <span>MK</span>
-          <span className="avatar-status"/>
-        </div>
+        <ProfileDropdown profile={profile} setProfile={setProfile}/>
       </div>
 
       <style>{`
@@ -94,32 +91,6 @@ export default function TopBar({ repo, onOpenSearch }) {
           border: 1px solid var(--border);
           padding: 1px 5px; border-radius: 4px;
           background: #0B0F14;
-        }
-        .ghost-pill {
-          display:inline-flex; align-items:center; gap: 6px;
-          padding: 6px 10px;
-          background: rgba(79,140,255,0.06);
-          border: 1px solid rgba(79,140,255,0.2);
-          border-radius: 99px;
-          color: var(--accent-2);
-          cursor: pointer;
-          font-size: 11.5px;
-          transition: all 160ms ease;
-        }
-        .ghost-pill:hover { background: rgba(79,140,255,0.1); border-color: rgba(79,140,255,0.35); }
-        .avatar {
-          width: 30px; height: 30px; position: relative;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #7AA2FF, #A983FF);
-          display:flex; align-items:center; justify-content:center;
-          font-size: 11px; font-weight: 600; color: #0B0F14;
-          cursor: pointer;
-        }
-        .avatar-status {
-          position:absolute; bottom: -1px; right: -1px;
-          width: 9px; height: 9px; border-radius: 50%;
-          background: var(--success);
-          border: 2px solid var(--bg);
         }
         .idx { display:flex; align-items:center; gap:6px; font-size: 11.5px; padding: 4px 10px; border-radius: 99px; border: 1px solid; white-space: nowrap; flex-shrink: 0; }
         .idx-proc { color: var(--warn); border-color: rgba(245,181,68,0.25); background: rgba(245,181,68,0.06); }

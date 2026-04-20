@@ -10,6 +10,7 @@ import TweaksPanel from './components/TweaksPanel';
 import ConnectModal from './components/ConnectModal';
 import SearchModal from './components/SearchModal';
 import ConfirmDialog from './components/ConfirmDialog';
+import SettingsPanel from './components/SettingsPanel';
 import { askQuestion, listRepos, removeRepo } from './api';
 
 const DEFAULT_TWEAKS = {
@@ -74,6 +75,13 @@ export default function App() {
   const [showConnect, setShowConnect] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [removeTarget, setRemoveTarget] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState({ model: 'llama-3.3-70b-versatile', maxResults: 8, accent: '#4F8CFF' });
+  const [profile, setProfile] = useState({ name: 'User', role: 'Developer', queries: 0, repos: 0 });
+
+  useEffect(() => {
+    setProfile(p => ({ ...p, repos: repos.length }));
+  }, [repos]);
 
   useEffect(() => {
     listRepos().then(savedRepos => {
@@ -118,14 +126,15 @@ export default function App() {
 
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--accent", tweaks.accent);
-    const hex = tweaks.accent.replace("#", "");
+    const accentColor = settings.accent || tweaks.accent;
+    root.style.setProperty("--accent", accentColor);
+    const hex = accentColor.replace("#", "");
     const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
     root.style.setProperty("--accent-2", `rgb(${Math.min(255, r + 32)}, ${Math.min(255, g + 32)}, ${Math.min(255, b + 32)})`);
     root.style.setProperty("--accent-soft", `rgba(${r}, ${g}, ${b}, 0.14)`);
     root.style.setProperty("--accent-glow", `rgba(${r}, ${g}, ${b}, 0.35)`);
     document.body.style.setProperty("--top-h", tweaks.density === "compact" ? "46px" : "52px");
-  }, [tweaks]);
+  }, [tweaks, settings.accent]);
 
   useEffect(() => {
     if (tweaks.showAmbientGlow) document.body.style.setProperty("--ambient-opacity", "1");
@@ -210,6 +219,7 @@ export default function App() {
     }
 
     try {
+      setProfile(p => ({ ...p, queries: (p.queries || 0) + 1 }));
       const result = await askQuestion(repoId, text);
 
       if (result.sources && result.sources.length > 0) {
@@ -316,7 +326,7 @@ export default function App() {
         onSwitchThread={handleSwitchThread}
         onNewThread={handleNewThread}
       />
-      <TopBar repo={repo} onOpenSearch={() => setShowSearch(true)}/>
+      <TopBar repo={repo} onOpenSearch={() => setShowSearch(true)} onOpenSettings={() => setShowSettings(true)} profile={profile} setProfile={setProfile}/>
 
       {view === "chat" && (
         <>
@@ -343,6 +353,10 @@ export default function App() {
           onAsk={(q) => { setView('chat'); handleSend(q); }}
           onNavigate={setView}
         />
+      )}
+
+      {showSettings && (
+        <SettingsPanel settings={settings} setSettings={setSettings} onClose={() => setShowSettings(false)}/>
       )}
 
       {removeTarget && (
