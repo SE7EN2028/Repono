@@ -19,7 +19,7 @@ function StatusDot({ status, progress }) {
   );
 }
 
-export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, repos, setRepoId, onAddRepo }) {
+export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, repos, setRepoId, onAddRepo, onRemoveRepo }) {
   const [repoOpen, setRepoOpen] = useState(false);
   return (
     <aside className={"sidebar" + (collapsed ? " collapsed" : "")}>
@@ -76,7 +76,12 @@ export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, 
                     <div className="repo-name mono">{r.name}</div>
                     <div className="repo-meta mono">{r.branch} · {r.files.toLocaleString()} files</div>
                   </div>
-                  <StatusDot status={r.status} progress={r.progress}/>
+                  <span
+                    className="repo-remove"
+                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemoveRepo && onRemoveRepo(r.id); }}
+                  >
+                    Remove
+                  </span>
                 </button>
               ))}
               <div className="repo-menu-foot">
@@ -211,7 +216,7 @@ export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, 
         .repo-item {
           width: 100%;
           display:flex; align-items:center; justify-content:space-between;
-          gap: 10px; padding: 8px 10px;
+          gap: 8px; padding: 8px 10px;
           background: transparent;
           border: 0; border-radius: 8px;
           color: var(--text); cursor: pointer;
@@ -220,6 +225,18 @@ export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, 
         }
         .repo-item:hover { background: #141C27; }
         .repo-item.active { background: linear-gradient(90deg, var(--accent-soft), transparent); }
+        .repo-remove {
+          display: flex; align-items:center; justify-content:center;
+          padding: 3px 8px;
+          background: rgba(240,110,110,0.08);
+          border: 1px solid rgba(240,110,110,0.2);
+          color: var(--danger); cursor: pointer;
+          border-radius: 6px;
+          font-size: 10px;
+          white-space: nowrap;
+          transition: all 140ms ease;
+        }
+        .repo-remove:hover { background: rgba(240,110,110,0.2); border-color: rgba(240,110,110,0.4); }
         .repo-menu-foot { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 4px; }
         .ghost-btn {
           width: 100%;
