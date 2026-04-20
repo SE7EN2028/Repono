@@ -192,7 +192,7 @@ const STOP_WORDS = new Set([
   'who', 'whom', 'its', 'it', 'they', 'them', 'their', 'you', 'your',
   'from', 'about', 'into', 'through', 'during', 'before', 'after',
   'tell', 'me', 'show', 'give', 'get', 'use', 'used', 'using',
-  'does', 'work', 'works', 'code', 'function', 'file', 'please',
+  'does', 'work', 'works', 'please', 'entire', 'everything',
 ]);
 
 export { keywordSearch, buildAnswer };
