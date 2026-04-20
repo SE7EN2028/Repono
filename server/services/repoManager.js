@@ -5,8 +5,12 @@ import crypto from 'crypto';
 
 const REPOS_DIR = path.resolve('repos');
 
+function normalizeUrl(repoUrl) {
+  return repoUrl.replace(/\.git$/, '').replace(/\/$/, '').toLowerCase();
+}
+
 function generateRepoId(repoUrl) {
-  return crypto.createHash('md5').update(repoUrl).digest('hex').slice(0, 12);
+  return crypto.createHash('md5').update(normalizeUrl(repoUrl)).digest('hex').slice(0, 12);
 }
 
 function parseRepoUrl(repoUrl) {

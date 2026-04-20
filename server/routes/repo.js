@@ -83,6 +83,25 @@ router.get('/status/:repoId', async (req, res) => {
   }
 });
 
+router.delete('/remove/:repoId', async (req, res) => {
+  const { repoId } = req.params;
+  try {
+    const repos = await loadSavedRepos();
+    const filtered = repos.filter(r => r.repoId !== repoId);
+    await fs.writeFile(REPOS_FILE, JSON.stringify(filtered, null, 2));
+
+    const repoPath = path.resolve('repos', repoId);
+    await fs.rm(repoPath, { recursive: true, force: true }).catch(() => {});
+
+    const vectorPath = path.resolve('vector-store/data', repoId);
+    await fs.rm(vectorPath, { recursive: true, force: true }).catch(() => {});
+
+    res.json({ removed: repoId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/list', async (req, res) => {
   const repos = await loadSavedRepos();
   res.json({ repositories: repos });
@@ -114,9 +133,8 @@ router.get('/files/:repoId', async (req, res) => {
   const { repoId } = req.params;
   try {
     const repoPath = await getRepoPath(repoId);
-    const files = await parseRepository(repoPath);
-    const tree = buildTree(files);
-    res.json({ tree, fileCount: files.length });
+    const { tree, fileCount } = await walkAllFiles(repoPath);
+    res.json({ tree, fileCount });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -136,6 +154,61 @@ router.get('/file/:repoId', async (req, res) => {
     res.status(404).json({ error: err.message });
   }
 });
+
+const SKIP_DIRS = new Set(['.git', 'node_modules', '.next', '__pycache__', '.venv', 'venv', '.cache', 'dist', 'build']);
+
+async function walkAllFiles(repoPath) {
+  let fileCount = 0;
+
+  async function walk(dir) {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    const result = [];
+
+    const sorted = entries.sort((a, b) => {
+      if (a.isDirectory() && !b.isDirectory()) return -1;
+      if (!a.isDirectory() && b.isDirectory()) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    for (const entry of sorted) {
+      if (entry.name.startsWith('.') && entry.name !== '.env.example') continue;
+      const fullPath = path.join(dir, entry.name);
+
+      if (entry.isDirectory()) {
+        if (SKIP_DIRS.has(entry.name)) continue;
+        const children = await walk(fullPath);
+        result.push({ type: 'dir', name: entry.name, children });
+      } else {
+        const stat = await fs.stat(fullPath);
+        fileCount++;
+        result.push({
+          type: 'file',
+          name: entry.name,
+          size: formatSize(stat.size),
+          language: getLanguageFromName(entry.name),
+        });
+      }
+    }
+    return result;
+  }
+
+  const tree = await walk(repoPath);
+  return { tree, fileCount };
+}
+
+function getLanguageFromName(name) {
+  const ext = '.' + name.split('.').pop().toLowerCase();
+  const map = {
+    '.js': 'javascript', '.jsx': 'javascript', '.ts': 'typescript',
+    '.tsx': 'typescript', '.py': 'python', '.java': 'java',
+    '.go': 'go', '.rs': 'rust', '.html': 'html', '.css': 'css',
+    '.json': 'json', '.md': 'markdown', '.yml': 'yaml', '.yaml': 'yaml',
+    '.sh': 'shell', '.sql': 'sql', '.rb': 'ruby', '.php': 'php',
+    '.c': 'c', '.cpp': 'cpp', '.h': 'c', '.swift': 'swift',
+    '.kt': 'kotlin', '.vue': 'vue', '.svelte': 'svelte',
+  };
+  return map[ext] || name.split('.').pop();
+}
 
 function buildTree(files) {
   const root = [];

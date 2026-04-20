@@ -11,14 +11,9 @@ async function analyzeDependencies(repoPath) {
     const dir = parts.length > 1 ? parts.slice(0, -1).join('/') : '.';
 
     if (!dirMap[dir]) {
-      dirMap[dir] = {
-        id: dir,
-        label: dir,
-        files: [],
-        languages: {},
-      };
+      dirMap[dir] = { id: dir, files: [], languages: {} };
     }
-    dirMap[dir].files.push(file.path);
+    dirMap[dir].files.push(file);
     const lang = file.language;
     dirMap[dir].languages[lang] = (dirMap[dir].languages[lang] || 0) + 1;
   }
@@ -27,12 +22,12 @@ async function analyzeDependencies(repoPath) {
   const edgeSet = new Set();
   const edges = [];
 
-  for (const dir of Object.values(dirMap)) {
+  for (const [dirPath, dir] of Object.entries(dirMap)) {
     const topLang = Object.entries(dir.languages).sort((a, b) => b[1] - a[1])[0];
     nodes.push({
-      id: dir.id,
-      label: dir.id,
-      group: getGroup(dir.id),
+      id: dirPath,
+      label: dirPath,
+      group: getGroup(dirPath),
       size: Math.min(28, 10 + dir.files.length * 2),
       summary: `${dir.files.length} files, primarily ${topLang ? topLang[0] : 'unknown'}`,
     });
@@ -43,22 +38,47 @@ async function analyzeDependencies(repoPath) {
     const imports = extractImports(file.content);
 
     for (const imp of imports) {
-      const resolved = resolveImport(imp, file.path, files);
-      if (!resolved) continue;
+      if (!imp.startsWith('.') && !imp.startsWith('/')) continue;
 
-      const targetDir = resolved.split('/').slice(0, -1).join('/') || '.';
-      if (targetDir === sourceDir) continue;
-      if (!dirMap[targetDir]) continue;
+      const fromDir = path.dirname(file.path);
+      let resolved = path.normalize(path.join(fromDir, imp)).replace(/\\/g, '/');
+      resolved = resolved.replace(/\.(js|ts|jsx|tsx|py|go)$/, '');
 
-      const key = sourceDir + '>' + targetDir;
-      if (!edgeSet.has(key)) {
-        edgeSet.add(key);
-        edges.push([sourceDir, targetDir]);
+      let targetDir = null;
+      for (const dir of Object.keys(dirMap)) {
+        if (resolved.startsWith(dir + '/') || resolved === dir) {
+          targetDir = dir;
+        }
+      }
+
+      if (!targetDir) {
+        const parent = resolved.split('/').slice(0, -1).join('/');
+        if (dirMap[parent]) targetDir = parent;
+      }
+
+      if (targetDir && targetDir !== sourceDir) {
+        const key = sourceDir + '>' + targetDir;
+        if (!edgeSet.has(key)) {
+          edgeSet.add(key);
+          edges.push([sourceDir, targetDir]);
+        }
       }
     }
   }
 
-  layoutNodes(nodes);
+  const dirs = Object.keys(dirMap);
+  for (const dir of dirs) {
+    const parent = dir.split('/').slice(0, -1).join('/');
+    if (parent && dirMap[parent]) {
+      const key = parent + '>' + dir;
+      if (!edgeSet.has(key)) {
+        edgeSet.add(key);
+        edges.push([parent, dir]);
+      }
+    }
+  }
+
+  layoutNodes(nodes, edges);
 
   return { nodes, edges };
 }
@@ -69,6 +89,7 @@ function extractImports(content) {
     /import\s+.*?from\s+['"]([^'"]+)['"]/g,
     /import\s+['"]([^'"]+)['"]/g,
     /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+    /from\s+(\S+)\s+import/g,
   ];
 
   for (const pattern of patterns) {
@@ -81,55 +102,52 @@ function extractImports(content) {
   return imports;
 }
 
-function resolveImport(importPath, fromFile, allFiles) {
-  if (!importPath.startsWith('.')) return null;
-
-  const fromDir = path.dirname(fromFile);
-  let resolved = path.normalize(path.join(fromDir, importPath));
-
-  resolved = resolved.replace(/\\/g, '/');
-
-  const extensions = ['', '.js', '.jsx', '.ts', '.tsx', '/index.js', '/index.ts'];
-
-  for (const ext of extensions) {
-    const candidate = resolved + ext;
-    if (allFiles.some(f => f.path === candidate)) {
-      return candidate;
-    }
-  }
-
-  return null;
-}
-
 function getGroup(dirPath) {
-  if (dirPath.includes('test') || dirPath.includes('spec')) return 'test';
-  if (dirPath.includes('config') || dirPath.includes('infra')) return 'infra';
-  if (dirPath.includes('component') || dirPath.includes('ui') || dirPath.includes('view')) return 'app';
-  if (dirPath.includes('service') || dirPath.includes('api') || dirPath.includes('route')) return 'svc';
-  if (dirPath.includes('lib') || dirPath.includes('util') || dirPath.includes('helper') || dirPath.includes('core')) return 'pkg';
+  const lower = dirPath.toLowerCase();
+  if (lower.includes('test') || lower.includes('spec') || lower.includes('__test')) return 'test';
+  if (lower.includes('config') || lower.includes('infra') || lower === '.') return 'infra';
+  if (lower.includes('component') || lower.includes('ui') || lower.includes('view') || lower.includes('page') || lower.includes('renderer')) return 'app';
+  if (lower.includes('service') || lower.includes('api') || lower.includes('route') || lower.includes('server')) return 'svc';
+  if (lower.includes('lib') || lower.includes('util') || lower.includes('helper') || lower.includes('core') || lower.includes('data')) return 'pkg';
+  if (lower.includes('src')) return 'app';
   return 'pkg';
 }
 
-function layoutNodes(nodes) {
+function layoutNodes(nodes, edges) {
   const total = nodes.length;
   if (total === 0) return;
 
-  const cols = Math.ceil(Math.sqrt(total));
-  const padding = 0.12;
+  const edgeMap = {};
+  for (const [a, b] of edges) {
+    edgeMap[a] = (edgeMap[a] || 0) + 1;
+    edgeMap[b] = (edgeMap[b] || 0) + 1;
+  }
+
+  nodes.sort((a, b) => (edgeMap[b.id] || 0) - (edgeMap[a.id] || 0));
+
+  if (total === 1) {
+    nodes[0].x = 0.5;
+    nodes[0].y = 0.5;
+    return;
+  }
+
+  const cols = Math.ceil(Math.sqrt(total * 1.5));
+  const rows = Math.ceil(total / cols);
+  const padX = 0.12;
+  const padY = 0.15;
 
   for (let i = 0; i < nodes.length; i++) {
     const row = Math.floor(i / cols);
     const col = i % cols;
-    const rows = Math.ceil(total / cols);
 
-    nodes[i].x = padding + (col / Math.max(1, cols - 1)) * (1 - 2 * padding);
-    nodes[i].y = padding + (row / Math.max(1, rows - 1)) * (1 - 2 * padding);
+    nodes[i].x = padX + (col / Math.max(1, cols - 1)) * (1 - 2 * padX);
+    nodes[i].y = padY + (row / Math.max(1, rows - 1)) * (1 - 2 * padY);
 
-    nodes[i].x += (Math.random() - 0.5) * 0.04;
-    nodes[i].y += (Math.random() - 0.5) * 0.04;
+    nodes[i].x += (Math.random() - 0.5) * 0.06;
+    nodes[i].y += (Math.random() - 0.5) * 0.06;
 
-    nodes[i].x = Math.max(0.06, Math.min(0.94, nodes[i].x));
-    nodes[i].y = Math.max(0.06, Math.min(0.94, nodes[i].y));
+    nodes[i].x = Math.max(0.08, Math.min(0.92, nodes[i].x));
+    nodes[i].y = Math.max(0.08, Math.min(0.92, nodes[i].y));
   }
 }
 
