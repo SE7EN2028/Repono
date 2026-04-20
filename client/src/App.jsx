@@ -216,14 +216,31 @@ export default function App() {
         setLastSources(result.sources);
       }
 
-      const blocks = [
-        { type: "text", text: result.answer },
-      ];
+      addMsg({
+        id: aid,
+        role: "assistant",
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        blocks: [{ type: "text", text: "" }],
+        streaming: true,
+      });
+
+      const fullText = result.answer;
+      const words = fullText.split(/(\s+)/);
+      let shown = '';
+
+      for (let i = 0; i < words.length; i += 3) {
+        shown += words.slice(i, i + 3).join('');
+        const partial = shown;
+        updateLastMsg(m => ({ ...m, blocks: [{ type: "text", text: partial }] }));
+        await new Promise(r => setTimeout(r, 20));
+      }
+
+      const finalBlocks = [{ type: "text", text: fullText }];
 
       if (result.sources && result.sources.length > 0) {
-        blocks.push({
+        finalBlocks.push({
           type: "refs",
-          items: result.sources.map(s => ({
+          items: result.sources.slice(0, 4).map(s => ({
             file: s.filePath,
             lines: `${s.startLine}-${s.endLine}`,
             why: s.name,
@@ -231,18 +248,7 @@ export default function App() {
         });
       }
 
-      blocks.push({
-        type: "callout",
-        kind: "info",
-        text: `Query type: **${result.queryType}** · Confidence: **${Math.round((result.confidence || 0) * 100)}%**`,
-      });
-
-      addMsg({
-        id: aid,
-        role: "assistant",
-        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        blocks,
-      });
+      updateLastMsg(m => ({ ...m, blocks: finalBlocks, streaming: false }));
     } catch (err) {
       addMsg({
         id: aid,

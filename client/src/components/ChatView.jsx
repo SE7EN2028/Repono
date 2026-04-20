@@ -9,16 +9,29 @@ function renderInline(t) {
 }
 
 function renderMarkdown(text) {
+  if (!text) return null;
   const parts = text.split(/(```[\s\S]*?```)/g);
   return parts.map((part, i) => {
     if (part.startsWith('```')) {
+      const firstLine = part.split('\n')[0];
+      const lang = firstLine.replace('```', '').trim();
       const code = part.replace(/^```\w*\n?/, '').replace(/\n?```$/, '');
-      return <CodeBlock key={i} code={code} startLine={1}/>;
+      return <CodeBlock key={i} code={code} startLine={1} fileHeader={lang || null}/>;
     }
-    const lines = part.split('\n').filter(l => l.trim());
+    const lines = part.split('\n');
     return lines.map((line, j) => {
-      if (line.startsWith('- ')) {
-        return <div key={`${i}-${j}`} className="block-text" style={{paddingLeft: 12}} dangerouslySetInnerHTML={{ __html: '• ' + renderInline(line.slice(2)) }}/>;
+      if (!line.trim()) return null;
+      if (line.startsWith('### ')) {
+        return <div key={`${i}-${j}`} className="block-heading">{line.replace('### ', '')}</div>;
+      }
+      if (line.startsWith('## ')) {
+        return <div key={`${i}-${j}`} className="block-heading lg">{line.replace('## ', '')}</div>;
+      }
+      if (line.startsWith('- ') || line.startsWith('* ')) {
+        return <div key={`${i}-${j}`} className="block-text list-item" dangerouslySetInnerHTML={{ __html: '• ' + renderInline(line.slice(2)) }}/>;
+      }
+      if (/^\d+\.\s/.test(line)) {
+        return <div key={`${i}-${j}`} className="block-text list-item" dangerouslySetInnerHTML={{ __html: renderInline(line) }}/>;
       }
       return <div key={`${i}-${j}`} className="block-text" dangerouslySetInnerHTML={{ __html: renderInline(line) }}/>;
     });
@@ -34,19 +47,17 @@ function Block({ block, onOpenRef }) {
   }
   if (block.type === "refs") {
     return (
-      <div className="block-refs">
-        <div className="refs-head">
-          <I.Layers size={12}/>
-          <span>Referenced {block.items.length} files</span>
+      <div className="block-sources">
+        <div className="sources-label"><I.Layers size={11}/> Sources</div>
+        <div className="sources-list">
+          {block.items.map((it, i) => (
+            <span key={i} className="source-chip mono" title={it.file}>
+              <I.Files size={10}/>
+              {it.file.split('/').pop()}
+              <span className="source-lines">L{it.lines}</span>
+            </span>
+          ))}
         </div>
-        {block.items.map((it, i) => (
-          <button key={i} className="ref-item" onClick={() => onOpenRef && onOpenRef(it.file)}>
-            <div className="ref-path mono">{it.file}</div>
-            <div className="ref-lines mono">L{it.lines}</div>
-            <div className="ref-why">{it.why}</div>
-            <I.ChevronRight size={13} className="ref-chev"/>
-          </button>
-        ))}
       </div>
     );
   }
@@ -125,7 +136,7 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
 
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }
   }, [messages, streaming]);
 
@@ -213,7 +224,24 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
         .chat-welcome .welcome-icon { color: var(--accent-2); margin-bottom: 8px; }
         .chat-welcome h2 { font-size: 24px; font-weight: 600; color: var(--text); margin: 0; }
         .chat-welcome p { font-size: 14px; color: var(--text-muted); margin: 0; }
-        .block-text-wrap { display: flex; flex-direction: column; gap: 8px; }
+        .block-text-wrap { display: flex; flex-direction: column; gap: 4px; }
+        .block-heading { font-size: 14px; font-weight: 600; color: var(--text); margin-top: 8px; margin-bottom: 2px; }
+        .block-heading.lg { font-size: 16px; margin-top: 12px; }
+        .list-item { padding-left: 14px; }
+        .block-sources { margin-top: 4px; }
+        .sources-label { display:flex; align-items:center; gap: 6px; font-size: 10.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; }
+        .sources-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .source-chip {
+          display: inline-flex; align-items: center; gap: 5px;
+          padding: 4px 10px;
+          background: #0E141B;
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          font-size: 11px; color: var(--accent-2);
+          cursor: default;
+        }
+        .source-chip svg { color: var(--text-dim); }
+        .source-lines { color: var(--text-dim); font-size: 10px; }
         @keyframes msg-in {
           from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
