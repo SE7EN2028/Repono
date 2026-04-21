@@ -19,7 +19,7 @@ function StatusDot({ status, progress }) {
   );
 }
 
-export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, repos, setRepoId, onAddRepo, onRemoveRepo, threads, activeThread, onSwitchThread, onNewThread }) {
+export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, repos, setRepoId, onAddRepo, onRemoveRepo, threads, activeThread, onSwitchThread, onNewThread, usage }) {
   const [repoOpen, setRepoOpen] = useState(false);
   return (
     <aside className={"sidebar" + (collapsed ? " collapsed" : "")}>
@@ -134,13 +134,14 @@ export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, 
       )}
 
       <div className="sidebar-foot">
-        {!collapsed && (
+        {!collapsed && usage && (
           <div className="usage">
             <div className="usage-row">
-              <span className="usage-label">Context used</span>
-              <span className="usage-val mono">41%</span>
+              <span className="usage-label">Groq API ({usage.queries}/{usage.limit} queries)</span>
+              <span className="usage-val mono">{usage.percent}%</span>
             </div>
-            <div className="usage-bar"><div style={{ width: "41%" }}/></div>
+            <div className="usage-bar"><div style={{ width: usage.percent + '%' }}/></div>
+            <div className="usage-reset mono">{usage.resetLabel}</div>
           </div>
         )}
         <button className="icon-btn" onClick={() => setCollapsed(!collapsed)} title="Collapse sidebar">
@@ -308,7 +309,9 @@ export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, 
           height: 100%;
           background: linear-gradient(90deg, var(--accent), var(--accent-2));
           box-shadow: 0 0 8px var(--accent-glow);
+          transition: width 300ms ease;
         }
+        .usage-reset { font-size: 9px; color: var(--text-dim); margin-top: 4px; text-align: right; }
         .status-chip.processing {
           display:flex; align-items:center; gap:5px;
           font-size: 10px; color: var(--warn);

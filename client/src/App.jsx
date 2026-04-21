@@ -78,6 +78,16 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState({ model: 'llama-3.3-70b-versatile', maxResults: 8, accent: '#4F8CFF' });
   const [profile, setProfile] = useState({ name: 'User', role: 'Developer', queries: 0, repos: 0 });
+  const GROQ_DAILY_LIMIT = 14400;
+  const GROQ_MINUTE_LIMIT = 30;
+  const [groqUsage, setGroqUsage] = useState({ daily: 0, minute: 0, lastReset: Date.now() });
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setGroqUsage(prev => ({ ...prev, minute: 0 }));
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     setProfile(p => ({ ...p, repos: repos.length }));
@@ -221,6 +231,7 @@ export default function App() {
 
     try {
       setProfile(p => ({ ...p, queries: (p.queries || 0) + 1 }));
+      setGroqUsage(prev => ({ ...prev, daily: prev.daily + 1, minute: prev.minute + 1 }));
       const result = await askQuestion(repoId, text, settings);
 
       if (result.sources && result.sources.length > 0) {
@@ -326,6 +337,12 @@ export default function App() {
         activeThread={activeThreadId}
         onSwitchThread={handleSwitchThread}
         onNewThread={handleNewThread}
+        usage={{
+          queries: groqUsage.daily,
+          limit: GROQ_DAILY_LIMIT,
+          percent: Math.min(100, Math.round((groqUsage.daily / GROQ_DAILY_LIMIT) * 100)),
+          resetLabel: `${GROQ_MINUTE_LIMIT - groqUsage.minute} req/min left`,
+        }}
       />
       <TopBar repo={repo} onOpenSearch={() => setShowSearch(true)} onOpenSettings={() => setShowSettings(true)} profile={profile} setProfile={setProfile}/>
 
