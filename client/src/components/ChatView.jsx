@@ -81,6 +81,19 @@ function Block({ block, onOpenRef }) {
 }
 
 function Message({ m, onOpenRef }) {
+  const [copied, setCopied] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+
+  const handleCopy = () => {
+    const text = (m.blocks || [])
+      .filter(b => b.type === 'text')
+      .map(b => b.text)
+      .join('\n\n');
+    navigator.clipboard?.writeText(text).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   if (m.role === "user") {
     return (
       <div className="msg user msg-animate">
@@ -99,9 +112,15 @@ function Message({ m, onOpenRef }) {
       <div className="msg-body">
         {(m.blocks || []).map((b, i) => <Block key={i} block={b} onOpenRef={onOpenRef}/>)}
         <div className="msg-actions">
-          <button><I.Copy size={12}/> Copy</button>
-          <button><I.Check size={12}/> Good</button>
-          <button><I.Close size={12}/> Bad</button>
+          <button className={copied ? "action-done" : ""} onClick={handleCopy}>
+            {copied ? <><I.Check size={12}/> Copied</> : <><I.Copy size={12}/> Copy</>}
+          </button>
+          <button className={feedback === 'good' ? "action-done" : ""} onClick={() => setFeedback('good')}>
+            <I.Check size={12}/> {feedback === 'good' ? 'Thanks!' : 'Good'}
+          </button>
+          <button className={feedback === 'bad' ? "action-done" : ""} onClick={() => setFeedback('bad')}>
+            <I.Close size={12}/> {feedback === 'bad' ? 'Noted' : 'Bad'}
+          </button>
         </div>
       </div>
     </div>
@@ -406,6 +425,7 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
           transition: all 140ms ease;
         }
         .msg-actions button:hover { color: var(--text); border-color: var(--border); background: #101721; }
+        .msg-actions .action-done { color: var(--success); border-color: rgba(59,214,140,0.3); background: rgba(59,214,140,0.08); }
         .block-text { font-size: 13.5px; line-height: 1.6; color: var(--text); text-wrap: pretty; }
         .block-refs { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: #0E141B; }
         .refs-head { display:flex; align-items:center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 11.5px; background: #0C1219; }
