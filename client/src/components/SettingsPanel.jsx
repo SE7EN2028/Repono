@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as I from './Icons';
 
 export default function SettingsPanel({ settings, setSettings, onClose }) {
   const [activeTab, setActiveTab] = useState('general');
+  const [lightModeMsg, setLightModeMsg] = useState(false);
 
   const tabs = [
     { id: 'general', label: 'General' },
@@ -130,6 +131,39 @@ export default function SettingsPanel({ settings, setSettings, onClose }) {
                   <option value="16">Large (16px)</option>
                 </select>
               </div>
+
+              <div className="setting-item">
+                <div className="setting-label">Theme</div>
+                <div className="theme-toggle">
+                  <button
+                    className={"theme-btn active"}
+                    onClick={() => {}}
+                  >
+                    <I.Sparkle size={12}/> Dark
+                  </button>
+                  <button
+                    className="theme-btn"
+                    onClick={() => setLightModeMsg(true)}
+                  >
+                    <I.Zap size={12}/> Light
+                  </button>
+                </div>
+              </div>
+
+              {lightModeMsg && (
+                <div className="light-mode-toast">
+                  <div className="toast-icon">
+                    <I.Issue size={20}/>
+                  </div>
+                  <div className="toast-text">
+                    <div className="toast-title">Nice try</div>
+                    <div className="toast-msg">Real devs don't use light mode. Your eyes will thank you later.</div>
+                  </div>
+                  <button className="toast-close" onClick={() => setLightModeMsg(false)}>
+                    <I.Close size={12}/>
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -201,6 +235,44 @@ export default function SettingsPanel({ settings, setSettings, onClose }) {
           }
           .color-swatch:hover { transform: scale(1.1); }
           .color-swatch.active { border-color: var(--text); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px currentColor; }
+          .theme-toggle { display: flex; gap: 6px; }
+          .theme-btn {
+            flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 8px 12px;
+            background: #0B0F14; border: 1px solid var(--border);
+            border-radius: 8px; color: var(--text-muted);
+            font-size: 12.5px; cursor: pointer;
+            transition: all 160ms ease;
+          }
+          .theme-btn:hover { border-color: var(--border-2); color: var(--text); }
+          .theme-btn.active {
+            background: var(--accent-soft);
+            border-color: var(--accent);
+            color: var(--accent-2);
+          }
+          .theme-btn.active svg { color: var(--accent-2); }
+          @keyframes toast-slide {
+            from { opacity: 0; transform: translateY(8px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+          }
+          .light-mode-toast {
+            display: flex; align-items: flex-start; gap: 10px;
+            padding: 12px;
+            background: linear-gradient(135deg, rgba(240,110,110,0.1), rgba(245,181,68,0.08));
+            border: 1px solid rgba(240,110,110,0.25);
+            border-radius: 10px;
+            animation: toast-slide 0.3s ease-out;
+          }
+          .toast-icon { color: var(--warn); flex-shrink: 0; margin-top: 2px; }
+          .toast-text { flex: 1; }
+          .toast-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+          .toast-msg { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+          .toast-close {
+            background: transparent; border: 0;
+            color: var(--text-dim); cursor: pointer;
+            padding: 2px; border-radius: 4px;
+          }
+          .toast-close:hover { color: var(--text); }
         `}</style>
       </div>
     </div>
