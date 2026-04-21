@@ -67,22 +67,21 @@ export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, 
           {repoOpen && (
             <div className="repo-menu">
               {(repos || []).map(r => (
-                <button
-                  key={r.id}
-                  className={"repo-item" + (r.id === repo.id ? " active" : "")}
-                  onClick={() => { setRepoId(r.id); setRepoOpen(false); }}
-                >
-                  <div className="repo-item-left">
+                <div key={r.id} className={"repo-card" + (r.id === repo.id ? " active" : "")}>
+                  <button
+                    className="repo-card-btn"
+                    onClick={() => { setRepoId(r.id); setRepoOpen(false); }}
+                  >
                     <div className="repo-name mono">{r.name}</div>
                     <div className="repo-meta mono">{r.branch} · {r.files.toLocaleString()} files</div>
-                  </div>
-                  <span
-                    className="repo-remove"
-                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemoveRepo && onRemoveRepo(r.id); }}
+                  </button>
+                  <button
+                    className="repo-remove-row"
+                    onClick={(e) => { e.stopPropagation(); onRemoveRepo && onRemoveRepo(r.id); }}
                   >
-                    Remove
-                  </span>
-                </button>
+                    <I.Close size={10}/> Remove
+                  </button>
+                </div>
               ))}
               <div className="repo-menu-foot">
                 <button className="ghost-btn" onClick={() => onAddRepo && onAddRepo()}><I.Plus size={13}/> Add repository</button>
@@ -216,30 +215,32 @@ export default function Sidebar({ collapsed, setCollapsed, view, setView, repo, 
           box-shadow: 0 20px 50px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.02);
           animation: menu-pop 160ms ease;
         }
-        .repo-item {
-          width: 100%;
-          display:flex; align-items:center; justify-content:space-between;
-          gap: 8px; padding: 8px 10px;
-          background: transparent;
-          border: 0; border-radius: 8px;
+        .repo-card {
+          border-radius: 8px;
+          transition: background 140ms ease;
+          overflow: hidden;
+        }
+        .repo-card:hover { background: #141C27; }
+        .repo-card.active { background: linear-gradient(90deg, var(--accent-soft), transparent); }
+        .repo-card-btn {
+          width: 100%; padding: 8px 10px;
+          background: transparent; border: 0;
           color: var(--text); cursor: pointer;
           text-align: left;
-          transition: background 140ms ease;
         }
-        .repo-item:hover { background: #141C27; }
-        .repo-item.active { background: linear-gradient(90deg, var(--accent-soft), transparent); }
-        .repo-remove {
-          display: flex; align-items:center; justify-content:center;
-          padding: 3px 8px;
-          background: rgba(240,110,110,0.08);
-          border: 1px solid rgba(240,110,110,0.2);
+        .repo-remove-row {
+          width: 100%;
+          display: none; align-items: center; justify-content: center; gap: 5px;
+          padding: 5px 10px;
+          background: transparent; border: 0;
+          border-top: 1px solid rgba(240,110,110,0.1);
           color: var(--danger); cursor: pointer;
-          border-radius: 6px;
-          font-size: 10px;
-          white-space: nowrap;
+          font-size: 10.5px;
           transition: all 140ms ease;
+          opacity: 0.7;
         }
-        .repo-remove:hover { background: rgba(240,110,110,0.2); border-color: rgba(240,110,110,0.4); }
+        .repo-card:hover .repo-remove-row { display: flex; }
+        .repo-remove-row:hover { background: rgba(240,110,110,0.1); opacity: 1; }
         .repo-menu-foot { border-top: 1px solid var(--border); margin-top: 4px; padding-top: 4px; }
         .ghost-btn {
           width: 100%;
