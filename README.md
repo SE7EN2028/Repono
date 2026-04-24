@@ -51,7 +51,7 @@ Start the server:
 npm start
 ```
 
-Open [http://localhost:3001](http://localhost:3001)
+Open http://localhost:3001 for the live demo in your local device!
 
 ## Deploying on Render
 
