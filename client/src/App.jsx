@@ -11,7 +11,9 @@ import ConnectModal from './components/ConnectModal';
 import SearchModal from './components/SearchModal';
 import ConfirmDialog from './components/ConfirmDialog';
 import SettingsPanel from './components/SettingsPanel';
-import { askQuestion, listRepos, removeRepo } from './api';
+import { askQuestion, listRepos, removeRepo, connectRepo } from './api';
+
+const DEMO_REPO_URL = 'https://github.com/SE7EN2028/Repono.git';
 
 const DEFAULT_TWEAKS = {
   accent: "#4F8CFF",
@@ -94,7 +96,7 @@ export default function App() {
   }, [repos]);
 
   useEffect(() => {
-    listRepos().then(savedRepos => {
+    listRepos().then(async savedRepos => {
       if (savedRepos && savedRepos.length > 0) {
         const seen = new Set();
         const mapped = [];
@@ -112,6 +114,23 @@ export default function App() {
         }
         setRepos(mapped);
         setRepoId(mapped[0].id);
+        return;
+      }
+
+      try {
+        const result = await connectRepo(DEMO_REPO_URL);
+        const demo = {
+          id: result.repoId,
+          name: result.owner + '/' + result.name,
+          branch: 'main',
+          lang: 'Mixed',
+          files: result.fileCount || 0,
+          status: result.embedded ? 'indexed' : 'parsed',
+        };
+        setRepos([demo]);
+        setRepoId(demo.id);
+      } catch (err) {
+        console.log('Demo repo load failed:', err.message);
       }
     }).catch(() => {});
   }, []);
