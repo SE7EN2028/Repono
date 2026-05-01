@@ -5,7 +5,7 @@ import { queryWithGroq } from '../services/ragPipeline.js';
 const router = Router();
 
 router.post('/ask', async (req, res) => {
-  const { question, repoId, model, maxResults, groqKey } = req.body;
+  const { question, repoId, model, maxResults, groqKey, geminiKey } = req.body;
 
   if (!question || !repoId) {
     return res.status(400).json({ error: 'Question and repoId are required' });
@@ -16,6 +16,7 @@ router.post('/ask', async (req, res) => {
       model: model || 'llama-3.3-70b-versatile',
       maxResults: maxResults || 8,
       groqKey: groqKey || null,
+      geminiKey: geminiKey || null,
     };
     const result = await queryWithGroq(repoId, question, options);
     res.json(result);

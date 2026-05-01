@@ -4,6 +4,8 @@ import { keywordSearch } from './keywordSearch.js';
 import { getRepoPath } from './repoManager.js';
 import { parseRepository } from './fileParser.js';
 import { chunkRepository } from './chunker.js';
+import { VectorStore } from './vectorStore.js';
+import { generateEmbedding } from './embeddings.js';
 
 let groq;
 function getClient(apiKey) {
@@ -25,27 +27,47 @@ async function queryWithGroq(repoId, question, options = {}) {
   const classification = classifyQuery(question);
   const repoPath = await getRepoPath(repoId);
   const topK = options.maxResults || 8;
+  const geminiKey = options.geminiKey || process.env.GEMINI_API_KEY;
 
-  let results = await keywordSearch(repoPath, question, topK);
-  let sources;
+  let results = [];
+  let searchMode = 'keyword';
+
+  if (geminiKey) {
+    const store = new VectorStore(repoId);
+    const hasEmbeddings = await store.exists();
+
+    if (hasEmbeddings) {
+      try {
+        await store.load();
+        const queryVec = await generateEmbedding(question, geminiKey);
+        results = store.search(queryVec, topK);
+        searchMode = 'semantic';
+      } catch (err) {
+        console.log('Semantic search failed, falling back to keyword:', err.message.slice(0, 80));
+      }
+    }
+  }
+
+  if (results.length === 0) {
+    results = await keywordSearch(repoPath, question, topK);
+    searchMode = 'keyword';
+  }
 
   if (results.length === 0) {
     const files = await parseRepository(repoPath);
     const chunks = chunkRepository(files);
-
     const seen = new Set();
-    const topChunks = [];
     for (const chunk of chunks) {
       const file = chunk.metadata.filePath;
       if (seen.has(file)) continue;
       seen.add(file);
-      topChunks.push({ chunk, score: 0 });
-      if (topChunks.length >= topK) break;
+      results.push({ chunk, score: 0 });
+      if (results.length >= topK) break;
     }
-    results = topChunks;
+    searchMode = 'full-scan';
   }
 
-  sources = results.map(r => ({
+  const sources = results.map(r => ({
     filePath: r.chunk.metadata.filePath,
     name: r.chunk.metadata.name,
     startLine: r.chunk.metadata.startLine,
@@ -75,6 +97,7 @@ async function queryWithGroq(repoId, question, options = {}) {
     sources,
     queryType: classification.type,
     confidence: classification.confidence,
+    searchMode,
   };
 }
 

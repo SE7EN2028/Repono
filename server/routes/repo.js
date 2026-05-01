@@ -107,6 +107,39 @@ router.get('/list', async (req, res) => {
   res.json({ repositories: repos });
 });
 
+router.post('/embed/:repoId', async (req, res) => {
+  const { repoId } = req.params;
+  const { geminiKey } = req.body;
+  const apiKey = geminiKey || process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    return res.status(400).json({ error: 'Gemini API key required for embeddings' });
+  }
+
+  try {
+    const repoPath = await getRepoPath(repoId);
+    const files = await parseRepository(repoPath);
+
+    const { chunkRepository } = await import('../services/chunker.js');
+    const { generateEmbeddings, prepareChunkText } = await import('../services/embeddings.js');
+    const { VectorStore } = await import('../services/vectorStore.js');
+
+    const chunks = chunkRepository(files);
+    const texts = chunks.map(prepareChunkText);
+
+    res.json({ status: 'started', chunkCount: chunks.length });
+
+    const embeddings = await generateEmbeddings(texts, apiKey);
+    const store = new VectorStore(repoId);
+    await store.addChunks(chunks, embeddings);
+    await store.save();
+
+    console.log(`Embeddings saved for ${repoId}: ${chunks.length} chunks`);
+  } catch (err) {
+    console.log('Embedding error:', err.message.slice(0, 100));
+  }
+});
+
 router.get('/dependencies/:repoId', async (req, res) => {
   const { repoId } = req.params;
   try {

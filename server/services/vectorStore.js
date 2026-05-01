@@ -1,23 +1,19 @@
-import pkg from 'faiss-node';
-const { IndexFlatIP } = pkg;
 import fs from 'fs/promises';
 import path from 'path';
-import { DIMENSIONS } from './embeddings.js';
 
 const STORE_DIR = path.resolve('vector-store/data');
 
 class VectorStore {
   constructor(repoId) {
     this.repoId = repoId;
-    this.index = new IndexFlatIP(DIMENSIONS);
+    this.vectors = [];
     this.chunks = [];
     this.storePath = path.join(STORE_DIR, repoId);
   }
 
   async addChunks(chunks, embeddings) {
     for (let i = 0; i < chunks.length; i++) {
-      const norm = normalize(embeddings[i]);
-      this.index.add(norm);
+      this.vectors.push(normalize(embeddings[i]));
       this.chunks.push(chunks[i]);
     }
   }
@@ -26,41 +22,53 @@ class VectorStore {
     if (this.chunks.length === 0) return [];
 
     const norm = normalize(queryEmbedding);
-    const result = this.index.search(norm, Math.min(topK, this.chunks.length));
+    const scores = this.vectors.map((vec, i) => ({
+      index: i,
+      score: cosineSimilarity(norm, vec),
+    }));
 
-    return result.labels.map((idx, i) => ({
-      chunk: this.chunks[idx],
-      score: result.distances[i]
+    scores.sort((a, b) => b.score - a.score);
+
+    return scores.slice(0, topK).map(s => ({
+      chunk: this.chunks[s.index],
+      score: s.score,
     }));
   }
 
   async save() {
     await fs.mkdir(this.storePath, { recursive: true });
-
-    const indexPath = path.join(this.storePath, 'index.faiss');
-    this.index.write(indexPath);
-
-    const metaPath = path.join(this.storePath, 'chunks.json');
-    await fs.writeFile(metaPath, JSON.stringify(this.chunks));
+    await fs.writeFile(
+      path.join(this.storePath, 'store.json'),
+      JSON.stringify({ vectors: this.vectors, chunks: this.chunks })
+    );
   }
 
   async load() {
-    const indexPath = path.join(this.storePath, 'index.faiss');
-    const metaPath = path.join(this.storePath, 'chunks.json');
-
-    const exists = await fs.access(indexPath).then(() => true).catch(() => false);
+    const filePath = path.join(this.storePath, 'store.json');
+    const exists = await fs.access(filePath).then(() => true).catch(() => false);
     if (!exists) throw new Error('No index found for this repository');
 
-    this.index = IndexFlatIP.read(indexPath);
-    const meta = await fs.readFile(metaPath, 'utf-8');
-    this.chunks = JSON.parse(meta);
+    const data = JSON.parse(await fs.readFile(filePath, 'utf-8'));
+    this.vectors = data.vectors;
+    this.chunks = data.chunks;
+  }
+
+  async exists() {
+    const filePath = path.join(this.storePath, 'store.json');
+    return fs.access(filePath).then(() => true).catch(() => false);
   }
 }
 
 function normalize(vec) {
-  const magnitude = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
-  if (magnitude === 0) return vec;
-  return vec.map(v => v / magnitude);
+  const mag = Math.sqrt(vec.reduce((sum, v) => sum + v * v, 0));
+  if (mag === 0) return vec;
+  return vec.map(v => v / mag);
+}
+
+function cosineSimilarity(a, b) {
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+  return dot;
 }
 
 export { VectorStore };

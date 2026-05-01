@@ -1,29 +1,31 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+const DIMENSIONS = 768;
 
-let genAI;
-function getClient() {
-  if (!genAI) genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  return genAI;
+async function generateEmbedding(text, apiKey) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${apiKey}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content: { parts: [{ text }] } }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error?.message || 'Embedding failed');
+  }
+
+  const data = await response.json();
+  return data.embedding.values;
 }
 
-const DIMENSIONS = 3072;
-
-async function generateEmbedding(text) {
-  const model = getClient().getGenerativeModel({ model: 'gemini-embedding-001' });
-  const result = await model.embedContent(text);
-  return result.embedding.values;
-}
-
-async function generateEmbeddings(texts) {
+async function generateEmbeddings(texts, apiKey) {
   const embeddings = [];
-  const model = getClient().getGenerativeModel({ model: 'gemini-embedding-001' });
 
   for (let i = 0; i < texts.length; i++) {
     try {
-      const result = await model.embedContent(texts[i]);
-      embeddings.push(result.embedding.values);
+      const embedding = await generateEmbedding(texts[i], apiKey);
+      embeddings.push(embedding);
     } catch (err) {
-      if (err.message && err.message.includes('429')) {
+      if (err.message.includes('429')) {
         console.log(`Rate limited at ${i}/${texts.length}, waiting 60s...`);
         await new Promise(r => setTimeout(r, 60000));
         i--;

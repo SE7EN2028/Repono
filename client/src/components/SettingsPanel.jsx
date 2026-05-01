@@ -90,6 +90,18 @@ export default function SettingsPanel({ settings, setSettings, onClose }) {
               </div>
 
               <div className="setting-item">
+                <div className="setting-label">Gemini API Key (for semantic search)</div>
+                <input
+                  type="password"
+                  className="setting-input mono"
+                  placeholder="AIza..."
+                  value={settings.geminiKey || ''}
+                  onChange={e => setSettings(s => ({ ...s, geminiKey: e.target.value }))}
+                />
+                <div className="setting-hint">Free at aistudio.google.com/apikey — enables smarter code search via embeddings</div>
+              </div>
+
+              <div className="setting-item">
                 <div className="setting-label">GitHub Token (for private repos)</div>
                 <input
                   type="password"

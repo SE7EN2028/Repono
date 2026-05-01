@@ -28,7 +28,7 @@ export async function askQuestion(repoId, question, settings = {}) {
   const response = await fetch(`${API_URL}/query/ask`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ repoId, question, model: settings.model, maxResults: settings.maxResults, groqKey: settings.groqKey }),
+    body: JSON.stringify({ repoId, question, model: settings.model, maxResults: settings.maxResults, groqKey: settings.groqKey, geminiKey: settings.geminiKey }),
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error);
@@ -42,6 +42,17 @@ export async function classifyQuestion(question) {
     body: JSON.stringify({ question }),
   });
   const data = await response.json();
+  return data;
+}
+
+export async function embedRepo(repoId, geminiKey) {
+  const response = await fetch(`${API_URL}/repo/embed/${repoId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ geminiKey }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error);
   return data;
 }
 
