@@ -75,10 +75,23 @@ async function queryWithGroq(repoId, question, options = {}) {
     score: r.score,
   }));
 
-  const context = results.map((r, i) => {
+  const PER_CHUNK_CHAR_LIMIT = 1800;
+  const TOTAL_CONTEXT_CHAR_LIMIT = 24000;
+
+  const trimmed = [];
+  let used = 0;
+  for (const r of results) {
     const m = r.chunk.metadata;
-    return `--- File: ${m.filePath} | Function: ${m.name} | Lines: ${m.startLine}-${m.endLine} ---\n${r.chunk.content}`;
-  }).join('\n\n');
+    let body = r.chunk.content;
+    if (body.length > PER_CHUNK_CHAR_LIMIT) {
+      body = body.slice(0, PER_CHUNK_CHAR_LIMIT) + '\n... [truncated]';
+    }
+    const block = `--- File: ${m.filePath} | Function: ${m.name} | Lines: ${m.startLine}-${m.endLine} ---\n${body}`;
+    if (used + block.length > TOTAL_CONTEXT_CHAR_LIMIT) break;
+    trimmed.push(block);
+    used += block.length;
+  }
+  const context = trimmed.join('\n\n');
 
   const systemPrompt = SYSTEM_PROMPTS[classification.type] || SYSTEM_PROMPTS.explain;
 
