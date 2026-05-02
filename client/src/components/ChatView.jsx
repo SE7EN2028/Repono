@@ -152,15 +152,46 @@ export function streamText(full, onUpdate, onDone, speed = 8) {
 export default function ChatView({ messages, onSend, streaming, onOpenRef, repoConnected }) {
   const [input, setInput] = useState("");
   const scrollRef = useRef(null);
+  const stickRef = useRef(true);
+
+  const lastUserScrollRef = useRef(0);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const disengage = () => {
+      stickRef.current = false;
+      lastUserScrollRef.current = Date.now();
+    };
+    const onScroll = () => {
+      const sinceUser = Date.now() - lastUserScrollRef.current;
+      if (sinceUser < 1500) return;
+      const distance = el.scrollHeight - el.scrollTop - el.clientHeight;
+      if (distance < 4) stickRef.current = true;
+    };
+
+    el.addEventListener('wheel', disengage, { passive: true });
+    el.addEventListener('touchmove', disengage, { passive: true });
+    el.addEventListener('keydown', disengage);
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('wheel', disengage);
+      el.removeEventListener('touchmove', disengage);
+      el.removeEventListener('keydown', disengage);
+      el.removeEventListener('scroll', onScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (scrollRef.current && stickRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, streaming]);
 
   const submit = () => {
     if (!input.trim() || streaming) return;
+    stickRef.current = true;
     onSend(input.trim());
     setInput("");
   };
