@@ -149,7 +149,7 @@ export function streamText(full, onUpdate, onDone, speed = 8) {
   step();
 }
 
-export default function ChatView({ messages, onSend, streaming, onOpenRef, repoConnected }) {
+export default function ChatView({ messages, onSend, streaming, onOpenRef, repoConnected, onAddRepo, repoName }) {
   const [input, setInput] = useState("");
   const scrollRef = useRef(null);
   const stickRef = useRef(true);
@@ -213,7 +213,29 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
             <div className="chat-welcome">
               <div className="welcome-icon"><I.Sparkle size={28}/></div>
               <h2>Repono</h2>
-              <p>{repoConnected ? 'Ask anything about your codebase' : 'Connect a repository to get started'}</p>
+              <p>{repoConnected ? 'Ask anything about your codebase' : 'Loading demo repository…'}</p>
+
+              <div className="onboard-card">
+                <div className="onboard-row">
+                  <I.Sparkle size={14}/>
+                  <div>
+                    <div className="onboard-title">Demo repo loaded</div>
+                    <div className="onboard-desc">
+                      <span className="mono">{repoName || 'SE7EN2028/Repono'}</span> is ready to explore. Try one of the prompts below or ask anything.
+                    </div>
+                  </div>
+                </div>
+                <div className="onboard-divider"/>
+                <div className="onboard-row">
+                  <I.Plus size={14}/>
+                  <div>
+                    <div className="onboard-title">Add your own repo</div>
+                    <div className="onboard-desc">
+                      Click <button className="onboard-link" onClick={onAddRepo}>+ Add repository</button> in the sidebar, or paste a GitHub URL.
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
           {messages.map(m => <Message key={m.id} m={m} onOpenRef={onOpenRef}/>)}
@@ -274,6 +296,27 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
         .chat-welcome .welcome-icon { color: var(--accent-2); margin-bottom: 8px; }
         .chat-welcome h2 { font-size: 24px; font-weight: 600; color: var(--text); margin: 0; }
         .chat-welcome p { font-size: 14px; color: var(--text-muted); margin: 0; }
+        .onboard-card {
+          margin-top: 24px;
+          width: min(540px, 90%);
+          background: linear-gradient(180deg, #101721 0%, #0D131A 100%);
+          border: 1px solid var(--border);
+          border-radius: 14px;
+          padding: 16px 18px;
+          text-align: left;
+        }
+        .onboard-row { display: grid; grid-template-columns: 18px 1fr; gap: 12px; align-items: start; }
+        .onboard-row > svg { color: var(--accent-2); margin-top: 3px; }
+        .onboard-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+        .onboard-desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.55; }
+        .onboard-desc .mono { color: var(--accent-2); font-size: 11.5px; padding: 1px 6px; background: rgba(79,140,255,0.08); border: 1px solid rgba(79,140,255,0.2); border-radius: 5px; }
+        .onboard-divider { height: 1px; background: var(--border); margin: 12px 0; }
+        .onboard-link {
+          background: none; border: 0; padding: 0;
+          color: var(--accent-2); font-size: inherit; font-family: inherit;
+          cursor: pointer; text-decoration: underline; text-decoration-color: rgba(79,140,255,0.4);
+        }
+        .onboard-link:hover { text-decoration-color: var(--accent-2); }
         .block-text-wrap { display: flex; flex-direction: column; gap: 4px; }
         .block-heading { font-size: 14px; font-weight: 600; color: var(--text); margin-top: 8px; margin-bottom: 2px; }
         .block-heading.lg { font-size: 16px; margin-top: 12px; }
