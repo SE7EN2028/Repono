@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import * as I from './Icons';
 import { CodeBlock } from './Highlight';
 import { getFileContent } from '../api';
@@ -12,6 +12,39 @@ export default function ContextViewer({ sources, repoId }) {
   const [activePath, setActivePath] = useState('');
   const [fileContent, setFileContent] = useState('');
   const [loading, setLoading] = useState(false);
+  const [width, setWidth] = useState(() => {
+    const saved = parseInt(localStorage.getItem('ctxWidth') || '0', 10);
+    return saved >= 240 ? saved : 380;
+  });
+  const draggingRef = useRef(false);
+
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!draggingRef.current) return;
+      const next = Math.min(900, Math.max(240, window.innerWidth - e.clientX));
+      setWidth(next);
+    };
+    const onUp = () => {
+      if (!draggingRef.current) return;
+      draggingRef.current = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      localStorage.setItem('ctxWidth', String(width));
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [width]);
+
+  const startDrag = (e) => {
+    e.preventDefault();
+    draggingRef.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
 
   const files = (sources || []).map(s => ({
     path: s.filePath,
@@ -40,7 +73,8 @@ export default function ContextViewer({ sources, repoId }) {
 
   if (files.length === 0) {
     return (
-      <aside className="ctx">
+      <aside className="ctx" style={{ width, minWidth: width }}>
+        <div className="ctx-resize" onMouseDown={startDrag}/>
         <div className="ctx-head">
           <div className="ctx-title">
             <I.Layers size={13}/>
@@ -57,7 +91,8 @@ export default function ContextViewer({ sources, repoId }) {
   }
 
   return (
-    <aside className="ctx">
+    <aside className="ctx" style={{ width, minWidth: width }}>
+      <div className="ctx-resize" onMouseDown={startDrag}/>
       <div className="ctx-head">
         <div className="ctx-title">
           <I.Layers size={13}/>
@@ -126,14 +161,24 @@ export default function ContextViewer({ sources, repoId }) {
 const ctxStyles = `
   .ctx {
     grid-area: ctx;
+    position: relative;
     display: flex;
     flex-direction: column;
     border-left: 1px solid var(--border);
     background: linear-gradient(180deg, #0C1219 0%, #0B0F14 100%);
-    width: var(--right-w);
-    min-width: var(--right-w);
     min-height: 0;
   }
+  .ctx-resize {
+    position: absolute;
+    top: 0; left: -3px; bottom: 0;
+    width: 6px;
+    cursor: col-resize;
+    z-index: 10;
+    background: transparent;
+    transition: background 140ms ease;
+  }
+  .ctx-resize:hover { background: var(--accent-soft); }
+  .ctx-resize:active { background: var(--accent-soft); }
   .ctx-head {
     display:flex; align-items:center; justify-content:space-between;
     padding: 10px 12px;
