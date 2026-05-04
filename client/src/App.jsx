@@ -78,7 +78,13 @@ export default function App() {
   const [showSearch, setShowSearch] = useState(false);
   const [removeTarget, setRemoveTarget] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [fileFocus, setFileFocus] = useState({ path: '', line: 0, token: 0 });
   const [settings, setSettings] = useState({ model: 'llama-3.3-70b-versatile', maxResults: 8, accent: '#4F8CFF' });
+
+  const goToFile = (path, line) => {
+    setFileFocus({ path, line: line || 0, token: Date.now() });
+    setView('files');
+  };
   const [profile, setProfile] = useState({ name: 'User', role: 'Developer', queries: 0, repos: 0 });
   const GROQ_DAILY_LIMIT = 14400;
   const GROQ_MINUTE_LIMIT = 30;
@@ -372,8 +378,8 @@ export default function App() {
         </>
       )}
       {view === "map" && <CodeMap repoId={repoId}/>}
-      {view === "files" && <FilesView repoId={repoId}/>}
-      {view === "insights" && <InsightsView repoId={repoId} repoName={repo?.name}/>}
+      {view === "files" && <FilesView repoId={repoId} focus={fileFocus}/>}
+      {view === "insights" && <InsightsView repoId={repoId} repoName={repo?.name} onIssueClick={goToFile}/>}
 
       <TweaksPanel tweaks={tweaks} setTweak={setTweak} open={tweaksOpen} setOpen={setTweaksOpen}/>
 

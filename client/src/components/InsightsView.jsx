@@ -15,7 +15,7 @@ function Card({ title, icon, span = 1, children }) {
   );
 }
 
-export default function InsightsView({ repoId, repoName }) {
+export default function InsightsView({ repoId, repoName, onIssueClick }) {
   const [data, setData] = useState({ summary: '', stack: [], frameworks: [], entries: [], issues: [], hotspots: [] });
   const [loading, setLoading] = useState(false);
 
@@ -86,13 +86,19 @@ export default function InsightsView({ repoId, repoName }) {
           <Card title="Potential issues" icon="Issue" span={2}>
             <div className="issue-list">
               {(data.issues || []).map((it, i) => (
-                <div key={i} className={"issue issue-" + it.level}>
+                <button
+                  key={i}
+                  className={"issue issue-" + it.level}
+                  onClick={() => onIssueClick && onIssueClick(it.file, it.line)}
+                  title={`Open ${it.file}:${it.line}`}
+                >
                   <div className="issue-dot"/>
                   <div className="issue-body">
                     <div className="issue-title">{it.title}</div>
                     <div className="issue-file mono">{it.file}:{it.line}</div>
                   </div>
-                </div>
+                  <I.ChevronRight size={12} className="issue-chev"/>
+                </button>
               ))}
               {(!data.issues || data.issues.length === 0) && (
                 <div style={{color: 'var(--text-dim)', fontSize: 12}}>No issues found</div>
@@ -175,13 +181,22 @@ export default function InsightsView({ repoId, repoName }) {
         .issue-list { display:flex; flex-direction: column; gap: 2px; }
         .issue {
           display: grid;
-          grid-template-columns: 10px 1fr;
+          grid-template-columns: 10px 1fr 14px;
           gap: 12px; align-items: center;
           padding: 10px 12px;
           border-radius: 10px;
-          transition: background 140ms ease;
+          transition: background 140ms ease, border-color 140ms ease;
+          background: transparent;
+          border: 1px solid transparent;
+          width: 100%;
+          text-align: left;
+          cursor: pointer;
+          color: inherit;
+          font-family: inherit;
         }
-        .issue:hover { background: #111823; }
+        .issue:hover { background: var(--accent-soft); border-color: rgba(255,255,255,0.06); }
+        .issue:hover .issue-chev { color: var(--accent-2); transform: translateX(2px); }
+        .issue-chev { color: var(--text-dim); transition: all 140ms ease; }
         .issue-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 4px; }
         .issue-warn .issue-dot { background: var(--warn); box-shadow: 0 0 8px rgba(245,181,68,0.5); }
         .issue-info .issue-dot { background: var(--accent-2); box-shadow: 0 0 8px rgba(79,140,255,0.5); }

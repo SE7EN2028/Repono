@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import * as I from './Icons';
 
 const TOKEN_COLORS = {
@@ -87,10 +87,18 @@ export function Highlight({ code }) {
   );
 }
 
-export function CodeBlock({ code, startLine = 1, highlightLines = [], fileHeader, copyable = true, dense = false }) {
+export function CodeBlock({ code, startLine = 1, highlightLines = [], fileHeader, copyable = true, dense = false, scrollToLine = 0, scrollKey = 0 }) {
   const [copied, setCopied] = useState(false);
   const lines = code.split("\n");
   const hl = new Set(highlightLines);
+  const targetRef = useRef(null);
+
+  useEffect(() => {
+    if (scrollToLine && targetRef.current) {
+      targetRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [scrollToLine, scrollKey]);
+
   return (
     <div className="codeblock">
       {fileHeader && (
@@ -112,8 +120,13 @@ export function CodeBlock({ code, startLine = 1, highlightLines = [], fileHeader
           {lines.map((line, idx) => {
             const ln = startLine + idx;
             const isHl = hl.has(idx + 1) || hl.has(ln);
+            const isTarget = scrollToLine && (ln === scrollToLine);
             return (
-              <div key={idx} className={"code-line" + (isHl ? " hl" : "")}>
+              <div
+                key={idx}
+                ref={isTarget ? targetRef : null}
+                className={"code-line" + (isHl ? " hl" : "") + (isTarget ? " hl-accent" : "")}
+              >
                 <span className="code-ln">{ln}</span>
                 <span className="code-src"><Highlight code={line || " "} /></span>
               </div>
@@ -147,6 +160,16 @@ export function CodeBlock({ code, startLine = 1, highlightLines = [], fileHeader
         .code-line.hl {
           background: linear-gradient(90deg, rgba(245,181,68,0.08), rgba(245,181,68,0.02));
           box-shadow: inset 2px 0 0 rgba(245,181,68,0.8);
+        }
+        .code-line.hl-accent {
+          background: linear-gradient(90deg, var(--accent-soft), transparent 80%);
+          box-shadow: inset 3px 0 0 var(--accent), 0 0 14px var(--accent-glow);
+          animation: hl-pulse 1.6s ease-out;
+        }
+        @keyframes hl-pulse {
+          0% { background: var(--accent-soft); }
+          50% { background: color-mix(in oklab, var(--accent) 18%, transparent); }
+          100% { background: linear-gradient(90deg, var(--accent-soft), transparent 80%); }
         }
         .code-ln {
           text-align: right;

@@ -54,7 +54,7 @@ function Stat({ label, val, tone }) {
   );
 }
 
-function FilePreview({ path, repoId }) {
+function FilePreview({ path, repoId, focusLine, focusToken }) {
   const [content, setContent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -94,7 +94,15 @@ function FilePreview({ path, repoId }) {
 
       {content && (
         <div className="fp-code">
-          <CodeBlock code={content} startLine={1} fileHeader={path} dense/>
+          <CodeBlock
+            code={content}
+            startLine={1}
+            fileHeader={path}
+            dense
+            highlightLines={focusLine ? [focusLine] : []}
+            scrollToLine={focusLine || 0}
+            scrollKey={focusToken}
+          />
         </div>
       )}
 
@@ -107,7 +115,7 @@ function FilePreview({ path, repoId }) {
   );
 }
 
-export default function FilesView({ repoId }) {
+export default function FilesView({ repoId, focus }) {
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState("");
   const [tree, setTree] = useState([]);
@@ -126,6 +134,10 @@ export default function FilesView({ repoId }) {
       .catch(() => setLoading(false));
   }, [repoId]);
 
+  useEffect(() => {
+    if (focus && focus.path) setSelected(focus.path);
+  }, [focus && focus.token]);
+
   return (
     <div className="files">
       <div className="files-head">
@@ -142,7 +154,12 @@ export default function FilesView({ repoId }) {
         <div className="tree-scroll">
           <Tree nodes={tree} depth={0} q={q} selected={selected} onSelect={setSelected} path=""/>
         </div>
-        <FilePreview path={selected} repoId={repoId}/>
+        <FilePreview
+          path={selected}
+          repoId={repoId}
+          focusLine={focus && focus.path === selected ? focus.line : 0}
+          focusToken={focus ? focus.token : 0}
+        />
       </div>
 
       <style>{`
