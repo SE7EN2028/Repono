@@ -1,9 +1,22 @@
 const API_URL = '/api';
 
+function getClientId() {
+  let id = localStorage.getItem('reponoClientId');
+  if (!id) {
+    id = (crypto.randomUUID && crypto.randomUUID()) || (Date.now().toString(36) + Math.random().toString(36).slice(2));
+    localStorage.setItem('reponoClientId', id);
+  }
+  return id;
+}
+
+function headers(extra = {}) {
+  return { 'Content-Type': 'application/json', 'X-Client-Id': getClientId(), ...extra };
+}
+
 export async function connectRepo(repoUrl) {
   const response = await fetch(`${API_URL}/repo/connect`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: headers(),
     body: JSON.stringify({ repoUrl }),
   });
   const data = await response.json();
@@ -12,14 +25,14 @@ export async function connectRepo(repoUrl) {
 }
 
 export async function getRepoStatus(repoId) {
-  const response = await fetch(`${API_URL}/repo/status/${repoId}`);
+  const response = await fetch(`${API_URL}/repo/status/${repoId}`, { headers: headers() });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error);
   return data;
 }
 
 export async function listRepos() {
-  const response = await fetch(`${API_URL}/repo/list`);
+  const response = await fetch(`${API_URL}/repo/list`, { headers: headers() });
   const data = await response.json();
   return data.repositories;
 }
@@ -27,7 +40,7 @@ export async function listRepos() {
 export async function askQuestion(repoId, question, settings = {}) {
   const response = await fetch(`${API_URL}/query/ask`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: headers(),
     body: JSON.stringify({ repoId, question, model: settings.model, maxResults: settings.maxResults, groqKey: settings.groqKey, geminiKey: settings.geminiKey }),
   });
   const data = await response.json();
@@ -38,7 +51,7 @@ export async function askQuestion(repoId, question, settings = {}) {
 export async function classifyQuestion(question) {
   const response = await fetch(`${API_URL}/query/classify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: headers(),
     body: JSON.stringify({ question }),
   });
   const data = await response.json();
@@ -48,7 +61,7 @@ export async function classifyQuestion(question) {
 export async function embedRepo(repoId, geminiKey) {
   const response = await fetch(`${API_URL}/repo/embed/${repoId}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: headers(),
     body: JSON.stringify({ geminiKey }),
   });
   const data = await response.json();
@@ -57,35 +70,35 @@ export async function embedRepo(repoId, geminiKey) {
 }
 
 export async function removeRepo(repoId) {
-  const response = await fetch(`${API_URL}/repo/remove/${repoId}`, { method: 'DELETE' });
+  const response = await fetch(`${API_URL}/repo/remove/${repoId}`, { method: 'DELETE', headers: headers() });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error);
   return data;
 }
 
 export async function getRepoDependencies(repoId) {
-  const response = await fetch(`${API_URL}/repo/dependencies/${repoId}`);
+  const response = await fetch(`${API_URL}/repo/dependencies/${repoId}`, { headers: headers() });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error);
   return data;
 }
 
 export async function getRepoInsights(repoId) {
-  const response = await fetch(`${API_URL}/repo/insights/${repoId}`);
+  const response = await fetch(`${API_URL}/repo/insights/${repoId}`, { headers: headers() });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error);
   return data;
 }
 
 export async function getRepoFiles(repoId) {
-  const response = await fetch(`${API_URL}/repo/files/${repoId}`);
+  const response = await fetch(`${API_URL}/repo/files/${repoId}`, { headers: headers() });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error);
   return data;
 }
 
 export async function getFileContent(repoId, filePath) {
-  const response = await fetch(`${API_URL}/repo/file/${repoId}?path=${encodeURIComponent(filePath)}`);
+  const response = await fetch(`${API_URL}/repo/file/${repoId}?path=${encodeURIComponent(filePath)}`, { headers: headers() });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error);
   return data;

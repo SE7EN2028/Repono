@@ -12,6 +12,10 @@ const repoStatus = new Map();
 
 const REPOS_FILE = path.resolve('repos.json');
 
+function getClientId(req) {
+  return req.headers['x-client-id'] || 'anonymous';
+}
+
 async function loadSavedRepos() {
   try {
     const data = await fs.readFile(REPOS_FILE, 'utf-8');
@@ -21,11 +25,12 @@ async function loadSavedRepos() {
   }
 }
 
-async function saveRepo(repo) {
+async function saveRepo(repo, clientId) {
   const repos = await loadSavedRepos();
-  const existing = repos.findIndex(r => r.repoId === repo.repoId);
-  if (existing >= 0) repos[existing] = repo;
-  else repos.push(repo);
+  const existing = repos.findIndex(r => r.repoId === repo.repoId && r.clientId === clientId);
+  const entry = { ...repo, clientId };
+  if (existing >= 0) repos[existing] = entry;
+  else repos.push(entry);
   await fs.writeFile(REPOS_FILE, JSON.stringify(repos, null, 2));
 }
 
@@ -57,7 +62,8 @@ router.post('/connect', async (req, res) => {
       status: 'parsed',
     };
 
-    await saveRepo(repoData);
+    const clientId = getClientId(req);
+    await saveRepo(repoData, clientId);
     res.json(repoData);
 
     indexRepository(repo.repoId, repo.repoPath, (status, progress) => {
@@ -65,7 +71,7 @@ router.post('/connect', async (req, res) => {
     }).then(async (result) => {
       repoData.embedded = result.embedded;
       repoData.status = result.embedded ? 'indexed' : 'parsed';
-      await saveRepo(repoData);
+      await saveRepo(repoData, clientId);
     }).catch(() => {});
   } catch (err) {
     repoStatus.set(repoUrl, { status: 'error', error: err.message });
@@ -85,16 +91,19 @@ router.get('/status/:repoId', async (req, res) => {
 
 router.delete('/remove/:repoId', async (req, res) => {
   const { repoId } = req.params;
+  const clientId = getClientId(req);
   try {
     const repos = await loadSavedRepos();
-    const filtered = repos.filter(r => r.repoId !== repoId);
+    const filtered = repos.filter(r => !(r.repoId === repoId && r.clientId === clientId));
     await fs.writeFile(REPOS_FILE, JSON.stringify(filtered, null, 2));
 
-    const repoPath = path.resolve('repos', repoId);
-    await fs.rm(repoPath, { recursive: true, force: true }).catch(() => {});
-
-    const vectorPath = path.resolve('vector-store/data', repoId);
-    await fs.rm(vectorPath, { recursive: true, force: true }).catch(() => {});
+    const stillUsed = filtered.some(r => r.repoId === repoId);
+    if (!stillUsed) {
+      const repoPath = path.resolve('repos', repoId);
+      await fs.rm(repoPath, { recursive: true, force: true }).catch(() => {});
+      const vectorPath = path.resolve('vector-store/data', repoId);
+      await fs.rm(vectorPath, { recursive: true, force: true }).catch(() => {});
+    }
 
     res.json({ removed: repoId });
   } catch (err) {
@@ -103,8 +112,10 @@ router.delete('/remove/:repoId', async (req, res) => {
 });
 
 router.get('/list', async (req, res) => {
+  const clientId = getClientId(req);
   const repos = await loadSavedRepos();
-  res.json({ repositories: repos });
+  const mine = repos.filter(r => r.clientId === clientId);
+  res.json({ repositories: mine });
 });
 
 router.post('/embed/:repoId', async (req, res) => {
