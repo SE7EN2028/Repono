@@ -373,7 +373,7 @@ export default function App() {
 
       {view === "chat" && (
         <>
-          <ChatView messages={messages} onSend={handleSend} streaming={streaming} onOpenRef={openRef} repoConnected={!!repoId} onAddRepo={() => setShowConnect(true)} repoName={repo?.name}/>
+          <ChatView messages={messages} onSend={handleSend} streaming={streaming} onOpenRef={openRef} repoConnected={!!repoId} onAddRepo={() => setShowConnect(true)} repoName={repo?.name} repoId={repoId} repoBranch={repo?.branch}/>
           <ContextViewer sources={lastSources} repoId={repoId}/>
         </>
       )}

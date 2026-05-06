@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import * as I from './Icons';
 import { CodeBlock } from './Highlight';
+import { getRepoFiles } from '../api';
 
 function renderInline(t) {
   return t
@@ -149,10 +150,62 @@ export function streamText(full, onUpdate, onDone, speed = 8) {
   step();
 }
 
-export default function ChatView({ messages, onSend, streaming, onOpenRef, repoConnected, onAddRepo, repoName }) {
+export default function ChatView({ messages, onSend, streaming, onOpenRef, repoConnected, onAddRepo, repoName, repoId, repoBranch }) {
   const [input, setInput] = useState("");
+  const [contextChips, setContextChips] = useState([]);
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerFiles, setPickerFiles] = useState([]);
+  const [pickerQuery, setPickerQuery] = useState("");
+  const [pickerLoading, setPickerLoading] = useState(false);
   const scrollRef = useRef(null);
   const stickRef = useRef(true);
+  const pickerRef = useRef(null);
+
+  useEffect(() => {
+    setContextChips([]);
+  }, [repoId]);
+
+  useEffect(() => {
+    if (!showPicker) return;
+    const onDoc = (e) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target)) setShowPicker(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [showPicker]);
+
+  const openPicker = async () => {
+    if (!repoId) return;
+    setShowPicker(true);
+    if (pickerFiles.length === 0) {
+      setPickerLoading(true);
+      try {
+        const data = await getRepoFiles(repoId);
+        const flat = [];
+        const walk = (nodes, prefix) => {
+          for (const n of nodes || []) {
+            const p = prefix ? `${prefix}/${n.name}` : n.name;
+            if (n.type === 'dir') walk(n.children, p);
+            else flat.push(p);
+          }
+        };
+        walk(data.tree, '');
+        setPickerFiles(flat);
+      } catch (err) {
+        console.log('Files load failed:', err.message);
+      }
+      setPickerLoading(false);
+    }
+  };
+
+  const addChip = (chip) => {
+    if (contextChips.find(c => c.kind === chip.kind && c.value === chip.value)) return;
+    setContextChips(prev => [...prev, chip]);
+  };
+
+  const removeChip = (idx) => {
+    setContextChips(prev => prev.filter((_, i) => i !== idx));
+  };
 
   const lastUserScrollRef = useRef(0);
 
@@ -192,7 +245,13 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
   const submit = () => {
     if (!input.trim() || streaming) return;
     stickRef.current = true;
-    onSend(input.trim());
+    const fileChips = contextChips.filter(c => c.kind === 'file');
+    let text = input.trim();
+    if (fileChips.length > 0) {
+      const list = fileChips.map(c => c.value).join(', ');
+      text = `[Context: ${list}]\n${text}`;
+    }
+    onSend(text);
     setInput("");
   };
 
@@ -256,9 +315,68 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
         )}
         <div className="composer">
           <div className="ctx-chips">
-            <span className="ctx-chip"><I.Files size={11}/> services/checkout <I.Close size={10}/></span>
-            <span className="ctx-chip"><I.GitBranch size={11}/> main@a41c9d2 <I.Close size={10}/></span>
-            <button className="ctx-add"><I.Plus size={11}/> Add context</button>
+            {repoName && (
+              <span className="ctx-chip" title={repoName}>
+                <I.Files size={11}/> {repoName}
+              </span>
+            )}
+            {repoBranch && (
+              <span className="ctx-chip">
+                <I.GitBranch size={11}/> {repoBranch}
+              </span>
+            )}
+            {contextChips.map((c, i) => (
+              <span key={i} className="ctx-chip" title={c.value}>
+                <I.Files size={11}/>
+                {c.value.split('/').pop()}
+                <span className="ctx-chip-close" onClick={() => removeChip(i)} role="button" aria-label="Remove">
+                  <I.Close size={10}/>
+                </span>
+              </span>
+            ))}
+            <div className="ctx-add-wrap" ref={pickerRef}>
+              <button
+                className="ctx-add"
+                onClick={openPicker}
+                disabled={!repoId}
+                title={repoId ? 'Add file as context' : 'Connect a repo first'}
+              >
+                <I.Plus size={11}/> Add context
+              </button>
+              {showPicker && (
+                <div className="ctx-picker">
+                  <input
+                    className="ctx-picker-search"
+                    placeholder="Search files…"
+                    value={pickerQuery}
+                    onChange={e => setPickerQuery(e.target.value)}
+                    autoFocus
+                  />
+                  <div className="ctx-picker-list">
+                    {pickerLoading && <div className="ctx-picker-empty">Loading…</div>}
+                    {!pickerLoading && pickerFiles.length === 0 && (
+                      <div className="ctx-picker-empty">No files found</div>
+                    )}
+                    {!pickerLoading && pickerFiles
+                      .filter(p => !pickerQuery || p.toLowerCase().includes(pickerQuery.toLowerCase()))
+                      .slice(0, 50)
+                      .map(p => (
+                        <button
+                          key={p}
+                          className="ctx-picker-item mono"
+                          onClick={() => {
+                            addChip({ kind: 'file', value: p });
+                            setShowPicker(false);
+                            setPickerQuery('');
+                          }}
+                        >
+                          <I.Files size={11}/> {p}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
           <textarea
             placeholder="Ask about your codebase…"
@@ -396,6 +514,15 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
         }
         .ctx-chip svg:last-child { color: var(--text-dim); cursor: pointer; margin-left: 2px; }
         .ctx-chip svg:last-child:hover { color: var(--text); }
+        .ctx-chip-close {
+          display: inline-flex; align-items: center; justify-content: center;
+          margin-left: 2px;
+          padding: 1px;
+          color: var(--text-dim);
+          cursor: pointer;
+          border-radius: 3px;
+        }
+        .ctx-chip-close:hover { color: var(--text); background: rgba(255,255,255,0.06); }
         .ctx-add {
           display:inline-flex; align-items:center; gap: 4px;
           padding: 3px 8px;
@@ -407,6 +534,46 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
           cursor: pointer;
         }
         .ctx-add:hover { color: var(--text); border-color: var(--text-dim); }
+        .ctx-add:disabled { opacity: 0.5; cursor: not-allowed; }
+        .ctx-add-wrap { position: relative; display: inline-block; }
+        .ctx-picker {
+          position: absolute;
+          bottom: calc(100% + 6px);
+          left: 0;
+          width: 320px;
+          background: #0E141B;
+          border: 1px solid var(--border-2);
+          border-radius: 10px;
+          box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+          padding: 6px;
+          z-index: 30;
+        }
+        .ctx-picker-search {
+          width: 100%;
+          background: #0B1118;
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          color: var(--text);
+          font-size: 12px;
+          padding: 6px 8px;
+          outline: none;
+          margin-bottom: 6px;
+        }
+        .ctx-picker-search:focus { border-color: rgba(79,140,255,0.4); }
+        .ctx-picker-list { max-height: 240px; overflow: auto; display: flex; flex-direction: column; gap: 1px; }
+        .ctx-picker-empty { color: var(--text-dim); font-size: 12px; padding: 10px; text-align: center; }
+        .ctx-picker-item {
+          display: flex; align-items: center; gap: 6px;
+          padding: 5px 8px;
+          background: transparent; border: 0;
+          color: var(--text-muted);
+          font-size: 11.5px;
+          text-align: left;
+          border-radius: 5px;
+          cursor: pointer;
+        }
+        .ctx-picker-item:hover { background: #131B26; color: var(--text); }
+        .ctx-picker-item svg { color: var(--text-dim); flex-shrink: 0; }
         .composer textarea {
           width: 100%;
           background: transparent;
