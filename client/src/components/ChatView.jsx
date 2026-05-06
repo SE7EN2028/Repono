@@ -150,7 +150,7 @@ export function streamText(full, onUpdate, onDone, speed = 8) {
   step();
 }
 
-export default function ChatView({ messages, onSend, streaming, onOpenRef, repoConnected, onAddRepo, repoName, repoId, repoBranch }) {
+export default function ChatView({ messages, onSend, streaming, onOpenRef, repoConnected, onAddRepo, repoName, repoId, repoBranch, isDemoRepo }) {
   const [input, setInput] = useState("");
   const [contextChips, setContextChips] = useState([]);
   const [showPicker, setShowPicker] = useState(false);
@@ -274,27 +274,41 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
               <h2>Repono</h2>
               <p>{repoConnected ? 'Ask anything about your codebase' : 'Loading demo repository…'}</p>
 
-              <div className="onboard-card">
-                <div className="onboard-row">
-                  <I.Sparkle size={14}/>
-                  <div>
-                    <div className="onboard-title">Demo repo loaded</div>
-                    <div className="onboard-desc">
-                      <span className="mono">{repoName || 'SE7EN2028/Repono'}</span> is ready to explore. Try one of the prompts below or ask anything.
+              {isDemoRepo ? (
+                <div className="onboard-card">
+                  <div className="onboard-row">
+                    <I.Sparkle size={14}/>
+                    <div>
+                      <div className="onboard-title">Demo repo loaded</div>
+                      <div className="onboard-desc">
+                        <span className="mono">{repoName || 'SE7EN2028/Repono'}</span> is ready to explore. Try one of the prompts below or ask anything.
+                      </div>
+                    </div>
+                  </div>
+                  <div className="onboard-divider"/>
+                  <div className="onboard-row">
+                    <I.Plus size={14}/>
+                    <div>
+                      <div className="onboard-title">Add your own repo</div>
+                      <div className="onboard-desc">
+                        Click <button className="onboard-link" onClick={onAddRepo}>+ Add repository</button> in the sidebar, or paste a GitHub URL.
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="onboard-divider"/>
-                <div className="onboard-row">
-                  <I.Plus size={14}/>
-                  <div>
-                    <div className="onboard-title">Add your own repo</div>
-                    <div className="onboard-desc">
-                      Click <button className="onboard-link" onClick={onAddRepo}>+ Add repository</button> in the sidebar, or paste a GitHub URL.
+              ) : repoConnected && (
+                <div className="onboard-card">
+                  <div className="onboard-row">
+                    <I.Sparkle size={14}/>
+                    <div>
+                      <div className="onboard-title">Ready to chat</div>
+                      <div className="onboard-desc">
+                        <span className="mono">{repoName}</span> is indexed. Try a prompt below or ask anything about this codebase.
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
           {messages.map(m => <Message key={m.id} m={m} onOpenRef={onOpenRef}/>)}

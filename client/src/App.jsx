@@ -132,6 +132,7 @@ export default function App() {
           lang: 'Mixed',
           files: result.fileCount || 0,
           status: result.embedded ? 'indexed' : 'parsed',
+          isDemo: true,
         };
         setRepos([demo]);
         setRepoId(demo.id);
@@ -373,7 +374,7 @@ export default function App() {
 
       {view === "chat" && (
         <>
-          <ChatView messages={messages} onSend={handleSend} streaming={streaming} onOpenRef={openRef} repoConnected={!!repoId} onAddRepo={() => setShowConnect(true)} repoName={repo?.name} repoId={repoId} repoBranch={repo?.branch}/>
+          <ChatView messages={messages} onSend={handleSend} streaming={streaming} onOpenRef={openRef} repoConnected={!!repoId} onAddRepo={() => setShowConnect(true)} repoName={repo?.name} repoId={repoId} repoBranch={repo?.branch} isDemoRepo={!!repo?.isDemo}/>
           <ContextViewer sources={lastSources} repoId={repoId}/>
         </>
       )}
