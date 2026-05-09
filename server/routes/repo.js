@@ -72,7 +72,14 @@ router.post('/connect', async (req, res) => {
       repoData.embedded = result.embedded;
       repoData.status = result.embedded ? 'indexed' : 'parsed';
       await saveRepo(repoData, clientId);
-    }).catch(() => {});
+    }).catch(async (err) => {
+      repoStatus.set(repoUrl, { status: 'error', error: err.message, repoId: repo.repoId });
+      repoData.status = 'error';
+      repoData.error = err.message;
+      try {
+        await saveRepo(repoData, clientId);
+      } catch {}
+    });
   } catch (err) {
     repoStatus.set(repoUrl, { status: 'error', error: err.message });
     res.status(500).json({ error: err.message });
