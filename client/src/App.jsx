@@ -28,7 +28,14 @@ export default function App() {
   const [view, setView] = useState("chat");
   const [repoId, setRepoId] = useState(null);
   const [repos, setRepos] = useState([]);
-  const [threadsByRepo, setThreadsByRepo] = useState({});
+  const [threadsByRepo, setThreadsByRepo] = useState(() => {
+    try {
+      const saved = localStorage.getItem('reponoThreads');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
   const [activeThreadId, setActiveThreadId] = useState(null);
   const [streaming, setStreaming] = useState(false);
   const [lastSources, setLastSources] = useState([]);
@@ -96,6 +103,12 @@ export default function App() {
     }, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('reponoThreads', JSON.stringify(threadsByRepo));
+    } catch {}
+  }, [threadsByRepo]);
 
   useEffect(() => {
     setProfile(p => ({ ...p, repos: repos.length }));
