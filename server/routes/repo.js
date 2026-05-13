@@ -198,7 +198,11 @@ router.get('/file/:repoId', async (req, res) => {
 
   try {
     const repoPath = await getRepoPath(repoId);
-    const fullPath = path.join(repoPath, filePath);
+    const repoRoot = path.resolve(repoPath);
+    const fullPath = path.resolve(repoRoot, filePath);
+    if (fullPath !== repoRoot && !fullPath.startsWith(repoRoot + path.sep)) {
+      return res.status(403).json({ error: 'invalid path' });
+    }
     const content = await fs.readFile(fullPath, 'utf-8');
     res.json({ path: filePath, content });
   } catch (err) {
