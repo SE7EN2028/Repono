@@ -127,7 +127,7 @@ router.get('/list', async (req, res) => {
 
 router.post('/embed/:repoId', async (req, res) => {
   const { repoId } = req.params;
-  const { geminiKey } = req.body;
+  const geminiKey = req.headers['x-gemini-key'];
   const apiKey = geminiKey || process.env.GEMINI_API_KEY;
 
   if (!apiKey) {

@@ -38,10 +38,13 @@ export async function listRepos() {
 }
 
 export async function askQuestion(repoId, question, settings = {}) {
+  const extra = {};
+  if (settings.groqKey) extra['X-Groq-Key'] = settings.groqKey;
+  if (settings.geminiKey) extra['X-Gemini-Key'] = settings.geminiKey;
   const response = await fetch(`${API_URL}/query/ask`, {
     method: 'POST',
-    headers: headers(),
-    body: JSON.stringify({ repoId, question, model: settings.model, maxResults: settings.maxResults, groqKey: settings.groqKey, geminiKey: settings.geminiKey }),
+    headers: headers(extra),
+    body: JSON.stringify({ repoId, question, model: settings.model, maxResults: settings.maxResults }),
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error);
@@ -59,10 +62,11 @@ export async function classifyQuestion(question) {
 }
 
 export async function embedRepo(repoId, geminiKey) {
+  const extra = {};
+  if (geminiKey) extra['X-Gemini-Key'] = geminiKey;
   const response = await fetch(`${API_URL}/repo/embed/${repoId}`, {
     method: 'POST',
-    headers: headers(),
-    body: JSON.stringify({ geminiKey }),
+    headers: headers(extra),
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error);
