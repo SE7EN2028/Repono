@@ -91,7 +91,6 @@ Open http://localhost:3001 for the live demo in your local device!
 ## Limitations
 
 - No conversation memory — each question is independent
-- Keyword search, not semantic — might miss code that uses different terminology
 - Context window limits how much code the AI sees per question
 - Private repos need a GitHub token (not implemented yet)
 - Chat history doesn't persist after refresh
