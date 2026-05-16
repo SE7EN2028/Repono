@@ -191,9 +191,7 @@ export default function ChatView({ messages, onSend, streaming, onOpenRef, repoC
         };
         walk(data.tree, '');
         setPickerFiles(flat);
-      } catch (err) {
-        console.log('Files load failed:', err.message);
-      }
+      } catch {}
       setPickerLoading(false);
     }
   };

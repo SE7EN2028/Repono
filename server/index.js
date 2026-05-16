@@ -31,6 +31,4 @@ if (fs.existsSync(clientDist)) {
   app.get('*', (req, res) => res.type('html').send(html));
 }
 
-app.listen(PORT, () => {
-  console.log(`Repono server running on port ${PORT}`);
-});
+app.listen(PORT);

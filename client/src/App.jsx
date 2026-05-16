@@ -149,9 +149,7 @@ export default function App() {
         };
         setRepos([demo]);
         setRepoId(demo.id);
-      } catch (err) {
-        console.log('Demo repo load failed:', err.message);
-      }
+      } catch {}
     }).catch(() => {});
   }, []);
 
@@ -353,9 +351,7 @@ export default function App() {
         const remaining = repos.filter(r => r.id !== id);
         setRepoId(remaining.length > 0 ? remaining[0].id : null);
       }
-    } catch (err) {
-      console.log('Remove failed:', err.message);
-    }
+    } catch {}
   };
 
   const openRef = () => {};

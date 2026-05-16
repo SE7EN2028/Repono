@@ -151,11 +151,7 @@ router.post('/embed/:repoId', async (req, res) => {
     const store = new VectorStore(repoId);
     await store.addChunks(chunks, embeddings);
     await store.save();
-
-    console.log(`Embeddings saved for ${repoId}: ${chunks.length} chunks`);
-  } catch (err) {
-    console.log('Embedding error:', err.message.slice(0, 100));
-  }
+  } catch {}
 });
 
 router.get('/dependencies/:repoId', async (req, res) => {

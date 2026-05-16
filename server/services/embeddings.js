@@ -29,7 +29,6 @@ async function generateEmbeddings(texts, apiKey) {
       embeddings.push(embedding);
     } catch (err) {
       if (err.message.includes('429')) {
-        console.log(`Rate limited at ${i}/${texts.length}, waiting 60s...`);
         await new Promise(r => setTimeout(r, 60000));
         i--;
         continue;
@@ -38,7 +37,6 @@ async function generateEmbeddings(texts, apiKey) {
     }
 
     if (i > 0 && i % 10 === 0) {
-      console.log(`Embedded ${i}/${texts.length} chunks...`);
       await new Promise(r => setTimeout(r, 1500));
     }
   }

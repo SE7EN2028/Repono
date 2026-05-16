@@ -23,7 +23,6 @@ router.post('/ask', async (req, res) => {
     const result = await queryWithGroq(repoId, question, options);
     res.json(result);
   } catch (err) {
-    console.log('Query error:', err.message.slice(0, 150));
     res.status(500).json({ error: err.message });
   }
 });

@@ -146,9 +146,7 @@ async function queryWithGroq(repoId, question, options = {}) {
         const queryVec = await generateEmbedding(question, geminiKey);
         results = store.search(queryVec, topK);
         searchMode = 'semantic';
-      } catch (err) {
-        console.log('Semantic search failed, falling back to keyword:', err.message.slice(0, 80));
-      }
+      } catch {}
     }
   }
 
