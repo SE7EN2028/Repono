@@ -8,6 +8,7 @@ export const REPOS = [
 export const NAV = [
   { id: "chat", label: "Chat", icon: "Chat", count: 3 },
   { id: "map", label: "Code Map", icon: "Map" },
+  { id: "apiflow", label: "API Flow", icon: "Flow" },
   { id: "files", label: "Files", icon: "Files" },
   { id: "insights", label: "Insights", icon: "Insights" },
 ];

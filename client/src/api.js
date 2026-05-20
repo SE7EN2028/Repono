@@ -87,6 +87,13 @@ export async function getRepoDependencies(repoId) {
   return data;
 }
 
+export async function getApiFlow(repoId) {
+  const response = await fetch(`${API_URL}/repo/api-flow/${repoId}`, { headers: headers() });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error);
+  return data;
+}
+
 export async function getRepoInsights(repoId) {
   const response = await fetch(`${API_URL}/repo/insights/${repoId}`, { headers: headers() });
   const data = await response.json();

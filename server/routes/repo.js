@@ -6,6 +6,7 @@ import { indexRepository } from '../services/indexer.js';
 import { parseRepository } from '../services/fileParser.js';
 import { generateInsights } from '../services/insightGenerator.js';
 import { analyzeDependencies } from '../services/dependencyAnalyzer.js';
+import { parseApiFlow } from '../services/routeParser.js';
 
 const router = Router();
 const repoStatus = new Map();
@@ -160,6 +161,17 @@ router.get('/dependencies/:repoId', async (req, res) => {
     const repoPath = await getRepoPath(repoId);
     const graph = await analyzeDependencies(repoPath);
     res.json(graph);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/api-flow/:repoId', async (req, res) => {
+  const { repoId } = req.params;
+  try {
+    const repoPath = await getRepoPath(repoId);
+    const flow = await parseApiFlow(repoPath);
+    res.json(flow);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -4,6 +4,7 @@ import TopBar from './components/TopBar';
 import ChatView from './components/ChatView';
 import ContextViewer from './components/ContextViewer';
 import CodeMap from './components/CodeMap';
+import ApiFlow from './components/ApiFlow';
 import FilesView from './components/FilesView';
 import InsightsView from './components/InsightsView';
 import TweaksPanel from './components/TweaksPanel';
@@ -388,6 +389,7 @@ export default function App() {
         </>
       )}
       {view === "map" && <CodeMap repoId={repoId}/>}
+      {view === "apiflow" && <ApiFlow repoId={repoId}/>}
       {view === "files" && <FilesView repoId={repoId} focus={fileFocus}/>}
       {view === "insights" && <InsightsView repoId={repoId} repoName={repo?.name} onIssueClick={goToFile}/>}
 
@@ -434,7 +436,8 @@ export default function App() {
         }
         .shell.view-map .codemap,
         .shell.view-files .files,
-        .shell.view-insights .insights {
+        .shell.view-insights .insights,
+        .shell.view-apiflow .api-flow {
           grid-column: 2 / -1;
           grid-row: 2;
         }
